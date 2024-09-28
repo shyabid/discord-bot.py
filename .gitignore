@@ -1,0 +1,4 @@
+.env
+**/__pycache__/
+app.log
+roadmap.txt
