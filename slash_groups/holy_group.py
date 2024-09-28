@@ -76,5 +76,3 @@ class HolyGroup(app_commands.Group):
         embed.set_author(name=data['reference'])
         embed.set_footer(text="taken from World English Bible")
         await interaction.response.send_message(embed=embed)
-
-    

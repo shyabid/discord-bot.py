@@ -25,3 +25,15 @@ def autocomplete_DICT(options: dict):
             if current.lower() in key.lower()
         ]
     return autocompletion
+
+def autocomplete_DICT2(options: dict):
+    async def autocompletion(
+        interaction: discord.Interaction,
+        current: str
+    ) -> typing.List[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=key, value=key)
+            for key, value in options.items()
+            if current.lower() in key.lower()
+        ]
+    return autocompletion

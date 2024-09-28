@@ -11,6 +11,10 @@ from slash_groups.user_group import UserGroup
 from slash_groups.holy_group import HolyGroup
 from slash_groups.anime_group import AnimeGroup
 
+from cogs.translate import translate_ctx_menu
+
+from slash_commands.help import helpcmd
+from slash_commands.interactions import interactioncmd
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
@@ -22,7 +26,7 @@ class Bot(commands.AutoShardedBot):
             message_content=True,
         )
         super().__init__(
-            command_prefix='!',
+            command_prefix='!',  # have to make a dynamic prefix command for diff guilds 
             description='A simplified version of RoboDanny bot.',
             allowed_mentions=allowed_mentions,
             intents=intents,
@@ -30,20 +34,46 @@ class Bot(commands.AutoShardedBot):
         )
     
     async def on_ready(self):
+        self.remove_command(help)
         log.info(f'Bot ready: {self.user} (ID: {self.user.id})')
-        try: 
-            
-            # yes i like addibgn group commands manually... maybe i am psychopath
+        
+        try:
+            await self.load_extension('cogs.translate')
+            await self.load_extension('cogs.interactions')
+        except Exception as e:
+            log.error(f'Failed to load extension: {e}')    
+        
+        
+        # yes i like adding group commands manually... maybe i am psychopath
+
+        try:
             self.tree.add_command(BotGroup(name="bot", description="bot commands"))
             self.tree.add_command(UserGroup(name="user", description="user commands"))
             self.tree.add_command(TestingGroup(name="test", description="test commands"))
             self.tree.add_command(ModGroup(name="moderation", description="moderation commands"))
             self.tree.add_command(HolyGroup(name="holy", description="holy commands"))
             self.tree.add_command(AnimeGroup(name="anime", description="anime commands"))
-        
+
         except Exception as e:
-            log.error(f'Failed to add command group: {e}')
+            log.error(f'Failed to add slash group: {e}')
         
+        
+        try:
+            self.tree.context_menu(name='traslate')(translate_ctx_menu)
+            
+        except Exception as e:
+            log.error(f'Failed to add context_menu: {e}')
+        
+        try:
+            self.tree.command(name="interactions", description="interact with a discord user through GIFs")(interactioncmd)
+            self.tree.command(name="help", description="Check the bot's latency")(helpcmd)
+            
+        except Exception as e:
+            log.error(f'Failed to add slash command: {e}')
+            
+            
+            
+            
         await self.change_presence(
             status=discord.Status.dnd
         )

@@ -5,8 +5,8 @@ from fastapi import FastAPI
 
 # will make a dhasboard and controller + bot status logs here with either FasAPI or Flask
 
+bot = Bot()
 async def main():
-    bot = Bot()
     await bot.start()
     
 asyncio.run(main())
