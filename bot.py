@@ -1,8 +1,12 @@
-import os
+import sys 
+import asynio 
 import discord 
-from logger import log
-from dotenv import load_dotenv
-from discord.ext import commands 
+import logging
+import traceback 
+from db import DatabaseManager
+from discord.ext import commands
+from typing import List, Optional, Any
+from logging.handlers import RotatingFileHandler
 
 from slash_groups.testing import TestingGroup
 from slash_groups.bot_group import BotGroup
@@ -11,8 +15,10 @@ from slash_groups.user_group import UserGroup
 from slash_groups.holy_group import HolyGroup
 from slash_groups.anime_group import AnimeGroup
 
-from cogs.translate import translate_ctx_menu
+from logger import log
+from dotenv import load_dotenv
 
+from cogs.translate import translate_ctx_menu
 from slash_commands.help import helpcmd
 from slash_commands.interactions import interactioncmd
 
@@ -26,11 +32,11 @@ class Bot(commands.AutoShardedBot):
             message_content=True,
         )
         super().__init__(
-            command_prefix='!',  # have to make a dynamic prefix command for diff guilds 
-            description='A simplified version of RoboDanny bot.',
+            command_prefix=commands.when_mentioned_or(["?"]),
+            description='Just a Bot',
             allowed_mentions=allowed_mentions,
             intents=intents,
-            enable_debug_events=True,
+            enable_debug_events=True
         )
     
     async def on_ready(self):
