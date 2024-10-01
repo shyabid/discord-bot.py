@@ -1,9 +1,10 @@
+import os
 import sys 
-import asynio 
+import asyncio 
 import discord 
 import logging
 import traceback 
-from db import DatabaseManager
+from db import db
 from discord.ext import commands
 from typing import List, Optional, Any
 from logging.handlers import RotatingFileHandler
@@ -32,7 +33,7 @@ class Bot(commands.AutoShardedBot):
             message_content=True,
         )
         super().__init__(
-            command_prefix=commands.when_mentioned_or(["?"]),
+            command_prefix=["?"],
             description='Just a Bot',
             allowed_mentions=allowed_mentions,
             intents=intents,
@@ -46,6 +47,7 @@ class Bot(commands.AutoShardedBot):
         try:
             await self.load_extension('cogs.translate')
             await self.load_extension('cogs.interactions')
+            await self.load_extension('cogs.afk')
         except Exception as e:
             log.error(f'Failed to load extension: {e}')    
         

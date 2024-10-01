@@ -16,3 +16,19 @@ def strtoint(time_str): # honestly, i am proud of this function
             
 
     return total_seconds
+
+def convert_seconds(total_seconds):
+    if total_seconds < 60:
+        return f"{total_seconds}s"
+    
+    minutes = total_seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h {minutes % 60}m" if minutes % 60 else f"{hours}h"
+    
+    days = hours // 24
+    
+    return f"{days}d {hours % 24}h" if hours % 24 else f"{days}d"
