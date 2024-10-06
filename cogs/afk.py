@@ -46,7 +46,7 @@ class Afk(commands.Cog):
                     await message.reply(embed=embed)
                 except Exception as e:
                     print(f"An error occurred while sending AFK message: {str(e)}")
-        await self.bot.process_message(message)
+
         
     @commands.hybrid_command(
         name="afk",

@@ -23,6 +23,10 @@ from cogs.translate import translate_ctx_menu
 from slash_commands.help import helpcmd
 from slash_commands.interactions import interactioncmd
 
+
+discord.utils.setup_logging()
+discord.utils.setup_logging(level=logging.INFO, root=False)
+
 class Bot(commands.AutoShardedBot):
     def __init__(self):
         allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
@@ -48,6 +52,10 @@ class Bot(commands.AutoShardedBot):
             await self.load_extension('cogs.translate')
             await self.load_extension('cogs.interactions')
             await self.load_extension('cogs.afk')
+            await self.load_extension('cogs.ban')
+            await self.load_extension('cogs.embed')
+            await self.load_extension('cogs.reactionrole')
+            
         except Exception as e:
             log.error(f'Failed to load extension: {e}')    
         
@@ -67,7 +75,7 @@ class Bot(commands.AutoShardedBot):
         
         
         try:
-            self.tree.context_menu(name='traslate')(translate_ctx_menu)
+            self.tree.context_menu(name='Traslate')(translate_ctx_menu)
             
         except Exception as e:
             log.error(f'Failed to add context_menu: {e}')
@@ -85,15 +93,15 @@ class Bot(commands.AutoShardedBot):
         await self.change_presence(
             status=discord.Status.dnd
         )
-        
+                
         try:
             # only syncs in test guild for faster sync
-            # will remove lator when its production ready
-            guild = discord.Object(id=1281246026459644027)
+            # will remove later when it's production ready
+
+            guild = self.get_guild(1051894699549523998)
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
             log.info("synced commands")
-            
         except Exception as e:
             log.error(f'Failed to sync: {e}')
         log.info("Finished the on_ready function")
@@ -130,7 +138,7 @@ class Bot(commands.AutoShardedBot):
         load_dotenv()
         await super().start(
             os.getenv('TOKEN')
-        )
+        )   
         
 
 

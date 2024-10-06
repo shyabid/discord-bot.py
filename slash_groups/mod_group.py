@@ -274,5 +274,3 @@ class ModGroup(app_commands.Group):
         if member.top_role >= interaction.user.top_role:
             await interaction.response.send_message("You cannot kick a user with the same or higher role.", ephemeral=True)
             return
-        
-        

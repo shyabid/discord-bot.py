@@ -22,7 +22,7 @@ class Translate(commands.Cog):
     @commands.command(
         name="translate",
         description="Translate text from one language to another",
-        aliases=["t"]
+        aliases=["t", "tl"]
     )
     async def translate(self, ctx, text=None):
             log.info("Inside translate command")

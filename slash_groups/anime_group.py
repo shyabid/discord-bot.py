@@ -25,7 +25,7 @@ class AnimeGroup(app_commands.Group):
                 await interaction.response.send_message(embed=embed)
         
         except Exception as e:
-            await interaction.response.send_message(f"An error occurred: {e}")
+            await interaction.response.defer(f"An error occurred: {e}", thinking=True)
             
 
     @app_commands.command(

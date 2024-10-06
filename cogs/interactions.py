@@ -14,31 +14,39 @@ class InteractionsCog(commands.Cog):
             return
         
         content = message.content.split()
-        
-        if len(content) < 2:
-            return
-        
-        command = content[0].lstrip(self.bot.command_prefix)
-        user_mention = content[1]
-        
-        if command in interaction_data and message.mentions:
-            user = message.mentions[0] 
-            response = requests.get(url=interaction_data[command][0])
-            
-            if response.status_code != 200:
-                await message.reply("Failed to fetch data.")
-                return
 
-            data = response.json()
-            txt = random.choice(interaction_data[command][1])
-            embed = discord.Embed(
-                description=f"{message.author.name} {txt} {user.name}",
-                color=discord.Color.dark_grey()
-            )
-            embed.set_image(url=data['results'][0]['url'])
-            embed.set_footer(text=f"Anime: {data['results'][0]['anime_name']}")
+        try:
+            if isinstance(self.bot.command_prefix, list):
+                prefix = self.bot.command_prefix[0]
+            else:
+                prefix = self.bot.command_prefix
+
+            command = content[0].lstrip(prefix)
+            if command in interaction_data and (len(content) < 2 or not message.mentions):
+                await message.reply("Mention a user to interact with")
+                return
             
-            await message.reply(embed=embed)
+            if command in interaction_data and message.mentions:
+                user_mention = content[1]
+                user = message.mentions[0] 
+                response = requests.get(url=interaction_data[command][0])
+                
+                if response.status_code != 200:
+                    await message.reply("Failed to fetch data.")
+                    return
+
+                data = response.json()
+                txt = random.choice(interaction_data[command][1])
+                embed = discord.Embed(
+                    description=f"{message.author.mention} {txt} {user.mention}",
+                    color=discord.Color.dark_grey()
+                )
+                embed.set_image(url=data['results'][0]['url'])
+                embed.set_footer(text=f"Anime: {data['results'][0]['anime_name']}")
+                
+                await message.reply(embed=embed)
+        except Exception as e:
+            await message.reply(f"An error occurred: {e}")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(InteractionsCog(bot))
