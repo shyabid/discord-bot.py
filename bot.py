@@ -6,8 +6,8 @@ import asyncio
 import discord
 import traceback
 from discord.ext import commands
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Coroutine, Iterable, List, Optional, Union
-from collections import Counter, defaultdict
+from typing import Optional
+from collections import Counter
 import datetime
 import logging
 import aiohttp
@@ -72,8 +72,7 @@ class Bot(commands.AutoShardedBot):
             'cogs.afk',
             'cogs.ban',
             'cogs.embed',
-            'cogs.reactionrole',
-            'cogs.eventpfp'
+            'cogs.role'
         ]:
             try:
                 await self.load_extension(extension)

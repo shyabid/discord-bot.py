@@ -2,7 +2,6 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 from db import db
-from bson.objectid import ObjectId
 import typing
 
 def get_embed_names(guild_id: str):
@@ -158,13 +157,16 @@ class Embed(commands.Cog):
                 color=discord.Color.blue()
             )
             await ctx.reply(embed=help_embed)
-
     @embedgroup.command(
         name="create",
         description="Create a new embed."
     )
     @app_commands.describe(name="Give a name for your embed. It should be unique and one worded.")
     async def embed_create(self, ctx: commands.Context, name: str):
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            return
+
         if ' ' in name:
             await ctx.reply("Embed name cannot contain spaces. Please use a single word or connect words with underscores.", ephemeral=True)
             return
@@ -179,6 +181,11 @@ class Embed(commands.Cog):
         description="List all the embeds in this guild."
     )
     async def embed_list(self, ctx: commands.Context):
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            return
+
+
         embeds = db[str(ctx.guild.id)]['embeds'].find() 
         embed_list = [f"`{embed['name']}`" for embed in embeds]
 
@@ -198,6 +205,10 @@ class Embed(commands.Cog):
     )
     @app_commands.describe(name="Name of the embed that you want to delete")
     async def embed_delete(self, ctx: commands.Context, name: str):
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            return
+
         embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
         
         if not embed_data:
@@ -212,9 +223,6 @@ class Embed(commands.Cog):
 
         await ctx.reply(f"Embed `{name}` deleted successfully.")
     
-
-
-
     @embedgroup.command(
         name="edit",
         description="Edit an existing embed."
@@ -222,6 +230,10 @@ class Embed(commands.Cog):
     @app_commands.autocomplete(name=autocomplete())
     @app_commands.describe(name="Name of the embed that you want to edit")
     async def embed_edit(self, ctx: commands.Context, name: str):
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            return
+
         embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
 
         if not embed_data:

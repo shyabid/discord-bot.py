@@ -40,14 +40,9 @@ def autocomplete_DICT2(options: dict):
     return autocompletion
 
 
-async def find_str(interaction: discord.Interaction, q: str):
-    guild = interaction.guild
-    if not guild:
-        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-        return
-
-    def similarity(a, b):
-        return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+async def find_usr(guild: discord.Guild, q: str):
+    
+    def similarity(a, b): return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
     best_match = None
     best_score = 0
@@ -72,7 +67,29 @@ async def find_str(interaction: discord.Interaction, q: str):
         return best_match
     else:
         return None
+
+async def find_role(guild: discord.Guild, q: str):
     
+    def similarity(a, b): return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+    best_match = None
+    best_score = 0
+
+    for role in guild.roles:
+        if q in str(role.id):
+            best_match = role
+            break
+
+        role_name_score = similarity(q, role.name)
+        if role_name_score > best_score:
+            best_match = role
+            best_score = role_name_score
+
+    if best_match:
+        return best_match
+    else:
+        return None
+
 def has_higher_role(user: discord.Member, target: discord.Member):
     if user.top_role > target.top_role:
         return True

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import asyncio
-from utils.slash_tools import find_str, has_higher_role
+from utils.slash_tools import find_usr
 
 class UserSelectView(discord.ui.View):
     def __init__(self, bot, max_select=1):
@@ -113,7 +113,7 @@ class Ban(commands.Cog):
                 return
         
         else:
-            user = await find_str(ctx, member)
+            user = await find_usr(ctx.guild, member)
             if user is None:
                 await ctx.reply("No valid users found.")
                 return
