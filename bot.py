@@ -117,6 +117,7 @@ class Bot(commands.AutoShardedBot):
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
             print("synced commands")
+
         except Exception as e:
             print(f'Failed to sync: {e}')
         print("Finished the on_ready function")
