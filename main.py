@@ -1,4 +1,3 @@
-from logger import log
 from bot import Bot
 import asyncio
 from fastapi import FastAPI

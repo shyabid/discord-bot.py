@@ -1,7 +1,7 @@
 import requests 
 from discord import app_commands
 import discord 
-from utils.slash_tools import autocomplete_DICT2
+from utils import create_autocomplete_from_dict as autocomplete_DICT2
 import random
 from data import interaction_data
 

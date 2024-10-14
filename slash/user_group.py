@@ -1,9 +1,8 @@
-
 import discord
 from typing import Optional
 from discord import app_commands
 import typing
-from utils.slash_tools import autocomplete
+from utils import create_autocomplete_from_list as autocomplete
 
 
 class UserGroup(app_commands.Group):

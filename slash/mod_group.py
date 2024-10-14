@@ -4,9 +4,9 @@ from typing import Optional
 from discord import app_commands
 import typing
 import time
-from utils.slash_tools import autocomplete
+from utils import create_autocomplete_from_list as autocomplete
 from discord.ext import commands
-from utils.timeparsetool import strtoint
+from utils import parse_time_string as strtoint
 from db import db
 from datetime import datetime
 

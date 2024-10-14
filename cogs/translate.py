@@ -1,6 +1,5 @@
 
 from discord.ext import commands
-from logger import log 
 import requests
 from discord import app_commands
 import aiohttp
@@ -25,12 +24,9 @@ class Translate(commands.Cog):
         aliases=["t", "tl"]
     )
     async def translate(self, ctx, text=None):
-            log.info("Inside translate command")
             if text is None:
                 if ctx.message.reference:
-                    log.info("The message has a reference")
                     message = await ctx.fetch_message(ctx.message.reference.message_id)
-                    log.info("Got the reference message")
                     text = message.content
                 else:
                     await ctx.reply("Please provide text or reply to a message to translate.")
@@ -47,7 +43,6 @@ class Translate(commands.Cog):
                         else:
                             await ctx.reply("Error while contacting the translation service.")
             except Exception as e:
-                log.error(f"An error occurred while translating: {e}")
                 await ctx.reply("An error occurred while translating.")
 
     @commands.command()
@@ -56,5 +51,4 @@ class Translate(commands.Cog):
     
 async def setup(bot):
     await bot.add_cog(Translate(bot))
-    log.info("Loaded cogs.translate")
     

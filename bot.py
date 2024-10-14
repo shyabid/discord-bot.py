@@ -22,7 +22,6 @@ EXTENSIONS: List[str] = [
     'cogs.translate',
     'cogs.interactions',
     'cogs.afk',
-    'cogs.ban',
     'cogs.embed',
     'cogs.role'
 ]
@@ -48,7 +47,11 @@ class Bot(commands.AutoShardedBot):
         self.logger: logging.Logger = logging.getLogger('bot')
         self.logger.info("Bot instance initialized successfully")
 
-    async def setup_hook(self) -> None:
+
+    async def setup_hook(
+        self
+    ) -> None:
+
         self.session = aiohttp.ClientSession()
         self.logger.info("aiohttp ClientSession created")
         
@@ -63,7 +66,6 @@ class Bot(commands.AutoShardedBot):
         group_commands: List[commands.Group] = [
             BotGroup(name="bot", description="bot commands"),
             UserGroup(name="user", description="user commands"),
-            TestingGroup(name="test", description="test commands"),
             ModGroup(name="moderation", description="moderation commands"),
             HolyGroup(name="holy", description="holy commands"),
             AnimeGroup(name="anime", description="anime commands")
@@ -109,7 +111,10 @@ class Bot(commands.AutoShardedBot):
         self.remove_command('help')
         self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
 
-    async def on_command_completion(self, context: commands.Context) -> None:
+    async def on_command_completion(
+        self, 
+        context: commands.Context
+    ) -> None:
         full_command_name: str = context.command.qualified_name
         split: List[str] = full_command_name.split(" ")
         executed_command: str = str(split[0])
@@ -122,19 +127,26 @@ class Bot(commands.AutoShardedBot):
                 f"Executed {executed_command} command by {context.author} (ID: {context.author.id}) in DMs"
             )
 
-    async def on_command_error(self, context: commands.Context, error: commands.CommandError) -> None:
+    async def on_command_error(
+        self, 
+        context: commands.Context, 
+        error: commands.CommandError
+    ) -> None:
+
         if isinstance(error, commands.MissingPermissions):
             embed: discord.Embed = discord.Embed(
                 description=f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!",
                 color=discord.Color.dark_grey()
             )
             await context.send(embed=embed)
+
         elif isinstance(error, commands.BotMissingPermissions):
             embed: discord.Embed = discord.Embed(
                 description=f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!",
                 color=discord.Color.dark_grey()
             )
             await context.send(embed=embed)
+
         elif isinstance(error, commands.MissingRequiredArgument):
             embed: discord.Embed = discord.Embed(
                 title="Error!",
@@ -142,39 +154,56 @@ class Bot(commands.AutoShardedBot):
                 color=discord.Color.dark_grey()
             )
             await context.send(embed=embed)
+
         else:
             raise error
+
         self.logger.warning(f"Command error handled: {type(error).__name__}")
 
-    async def on_message(self, message: discord.Message) -> None:
+    async def on_message(
+        self, 
+        message: discord.Message
+    ) -> None:
+
         if message.author.bot:
             return
         
         ctx: commands.Context = await self.get_context(message)
         await self.invoke(ctx)
 
-    async def process_commands(self, message: discord.Message) -> None:
-        ctx: commands.Context = await self.get_context(message)
+    async def process_commands(
+        self, 
+        message: discord.Message
+    ) -> None:
 
+        ctx: commands.Context = await self.get_context(message)
         if ctx.command is None:
             return
 
         await self.invoke(ctx)
 
-    async def on_command(self, ctx: commands.Context) -> None:
+    async def on_command(
+        self, 
+        ctx: commands.Context
+    ) -> None:
+
         self.command_stats[ctx.command.qualified_name] += 1
         message: discord.Message = ctx.message
         if isinstance(message.channel, discord.TextChannel):
             self.command_types_used[message.channel.type] += 1
         self.logger.info(f"Command '{ctx.command.qualified_name}' invoked")
 
-    async def close(self) -> None:
+    async def close(
+        self
+    ) -> None:
         await super().close()
         if self.session:
             await self.session.close()
         self.logger.info("Bot closed successfully")
 
-    async def start(self) -> None:
+    async def start(
+        self
+    ) -> None:
         load_dotenv()
         await super().start(os.getenv('TOKEN'))
         self.logger.info("Bot started successfully")

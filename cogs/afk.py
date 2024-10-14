@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils.timeparsetool import convert_seconds
+from utils import format_seconds
 from datetime import datetime, timezone
 from typing import Optional
 import calendar
@@ -28,7 +28,7 @@ class Afk(commands.Cog):
                 time_then = round(afk_data['since'])
                 time_now = round(time.time())
                 timediff = time_now - time_then
-                formated_time = convert_seconds(timediff)
+                formated_time = format_seconds(timediff)
                 await message.channel.send(f"{message.author.mention}, your AFK has been removed. You were away for `{formated_time}`")
             
             except Exception as e:

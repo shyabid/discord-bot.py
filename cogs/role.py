@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils.slash_tools import find_usr, find_role
+from utils import find_member, find_role
 import typing
 
 
@@ -15,7 +15,7 @@ class Role(commands.Cog):
     )
     @commands.has_permissions(manage_roles=True)
     async def role(self, ctx, user: str, role_name: str):
-        member = await find_usr(ctx.guild, user)
+        member = await find_member(ctx.guild, user)
         if not member:
             return await ctx.send("Couldn't find that user.")
 

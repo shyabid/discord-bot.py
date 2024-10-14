@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils.timeparsetool import convert_seconds
+from utils import convert_seconds
 from datetime import datetime, timezone
 from typing import Optional
 import calendar

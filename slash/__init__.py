@@ -1,4 +1,3 @@
-from .testing import TestingGroup
 from .bot_group import BotGroup
 from .mod_group import ModGroup
 from .interactions import interactioncmd
@@ -8,7 +7,6 @@ from .anime_group import AnimeGroup
 
 __all__ = [
     
-    'TestingGroup',
     'BotGroup',
     'ModGroup',
     'UserGroup',
