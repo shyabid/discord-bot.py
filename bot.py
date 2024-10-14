@@ -23,7 +23,8 @@ EXTENSIONS: List[str] = [
     'cogs.interactions',
     'cogs.afk',
     'cogs.embed',
-    'cogs.role'
+    'cogs.role',
+    'cogs.welcomer'
 ]
 
 # Setup logging using discord's prebuilt logging
