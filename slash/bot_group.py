@@ -14,7 +14,7 @@ class BotGroup(app_commands.Group):
         description="Returns with a Pong!"
     )
     async def ping(self,interaction: discord.Interaction):
-        await interaction.response.send_message(f"ping")
+        await interaction.response.send_message(f"pong")
         
     @app_commands.command(
         name="say",

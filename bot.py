@@ -3,85 +3,64 @@ from __future__ import annotations
 import os
 import sys
 import asyncio
-import discord
-import traceback
-from discord.ext import commands
-from typing import Optional
-from collections import Counter
-import datetime
 import logging
 import aiohttp
-import asyncpg
+import discord
+import datetime
+import traceback
+
+from typing import Optional, List, Dict, Any
+from dotenv import load_dotenv
+from collections import Counter
+from discord.ext import commands
 
 from db import db
-from slash_groups.testing import TestingGroup
-from slash_groups.bot_group import BotGroup
-from slash_groups.mod_group import ModGroup
-from slash_groups.user_group import UserGroup
-from slash_groups.holy_group import HolyGroup
-from slash_groups.anime_group import AnimeGroup
-
-from dotenv import load_dotenv
-
+from slash import *
 from cogs.translate import translate_ctx_menu
-from slash_commands.help import helpcmd
-from slash_commands.interactions import interactioncmd
+
+EXTENSIONS: List[str] = [
+    'cogs.translate',
+    'cogs.interactions',
+    'cogs.afk',
+    'cogs.ban',
+    'cogs.embed',
+    'cogs.role'
+]
 
 # Setup logging using discord's prebuilt logging
 discord.utils.setup_logging()
 
 class Bot(commands.AutoShardedBot):
-    def __init__(self):
-        allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
-        intents = discord.Intents(
-            guilds=True,
-            members=True,
-            messages=True,
-            message_content=True,
-        )
+    def __init__(self) -> None:
+        allowed_mentions: discord.AllowedMentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
+        intents: discord.Intents = discord.Intents.all()
         super().__init__(
-            command_prefix=["?"],
             description='Just a Bot',
+            command_prefix=['?'],
             allowed_mentions=allowed_mentions,
             intents=intents,
             enable_debug_events=True
         )
         self.session: Optional[aiohttp.ClientSession] = None
-        self.command_stats = Counter()
-        self.socket_stats = Counter()
-        self.command_types_used = Counter()
-        self.logger = logging.getLogger('bot')
+        self.command_stats: Counter[str] = Counter()
+        self.socket_stats: Counter[str] = Counter()
+        self.command_types_used: Counter[discord.ChannelType] = Counter()
+        self.logger: logging.Logger = logging.getLogger('bot')
+        self.logger.info("Bot instance initialized successfully")
 
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
+        self.logger.info("aiohttp ClientSession created")
         
-        try:
-            self.pool = await asyncpg.create_pool(os.getenv('DATABASE_URL'))
-            print('Connected to the database')
-        except Exception as e:
-            print(f'Could not connect to database: {e}')
-            traceback.print_exc()
-
-    async def on_ready(self):
-        self.remove_command('help')
-        print(f'Bot ready: {self.user} (ID: {self.user.id})')
-        
-        for extension in [
-            'cogs.translate',
-            'cogs.interactions',
-            'cogs.afk',
-            'cogs.ban',
-            'cogs.embed',
-            'cogs.role'
-        ]:
+        for extension in EXTENSIONS:
             try:
                 await self.load_extension(extension)
+                self.logger.info(f"Successfully loaded extension: {extension}")
             except Exception as e:
-                print(f'Failed to load extension {extension}: {e}')
+                self.logger.error(f'Failed to load extension {extension}: {e}')
                 traceback.print_exc()
         
-        # yes i like adding group commands manually... maybe i am psychopath
-        group_commands = [
+        group_commands: List[commands.Group] = [
             BotGroup(name="bot", description="bot commands"),
             UserGroup(name="user", description="user commands"),
             TestingGroup(name="test", description="test commands"),
@@ -93,74 +72,109 @@ class Bot(commands.AutoShardedBot):
         for group in group_commands:
             try:
                 self.tree.add_command(group)
+                self.logger.info(f"Successfully added slash group: {group.name}")
             except Exception as e:
-                print(f'Failed to add slash group {group.name}: {e}')
+                self.logger.error(f'Failed to add slash group {group.name}: {e}')
         
         try:
             self.tree.context_menu(name='Translate')(translate_ctx_menu)
+            self.logger.info("Successfully added Translate context menu")
         except Exception as e:
-            print(f'Failed to add context_menu: {e}')
+            self.logger.error(f'Failed to add context_menu: {e}')
         
         try:
             self.tree.command(name="interactions", description="interact with a discord user through GIFs")(interactioncmd)
             self.tree.command(name="help", description="Check the bot's latency")(helpcmd)
+            self.logger.info("Successfully added interactions and help slash commands")
         except Exception as e:
-            print(f'Failed to add slash command: {e}')
+            self.logger.error(f'Failed to add slash command: {e}')
         
         await self.change_presence(status=discord.Status.dnd)
+        self.logger.info("Bot presence changed to DND")
                 
         try:
             # only syncs in test guild for faster sync
             # will remove later when it's production ready
-            guild = self.get_guild(1292422671480651856)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print("synced commands")
-
+            guild: Optional[discord.Guild] = self.get_guild(1292422671480651856)
+            if guild:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                self.logger.info("Successfully synced commands to test guild")
         except Exception as e:
-            print(f'Failed to sync: {e}')
-        print("Finished the on_ready function")
-
-    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.NoPrivateMessage):
-            await ctx.author.send('This command cannot be used in private messages.')
-        elif isinstance(error, commands.DisabledCommand):
-            await ctx.reply('Sorry. This command is disabled and cannot be used.')
-        elif isinstance(error, commands.CommandInvokeError):
-            original = error.original
-            if not isinstance(original, discord.HTTPException):
-                print(f'In {ctx.command.qualified_name}:', file=sys.stderr)
-                traceback.print_tb(original.__traceback__)
-                print(f'{original.__class__.__name__}: {original}', file=sys.stderr)
-        elif isinstance(error, commands.ArgumentParsingError):
-            await ctx.reply(str(error))
+            self.logger.error(f'Failed to sync: {e}')
         
-    async def on_message(self, message: discord.Message):
+        self.logger.info("Finished the setup_hook function")
+
+    async def on_ready(self) -> None:
+        self.remove_command('help')
+        self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
+
+    async def on_command_completion(self, context: commands.Context) -> None:
+        full_command_name: str = context.command.qualified_name
+        split: List[str] = full_command_name.split(" ")
+        executed_command: str = str(split[0])
+        if context.guild is not None:
+            self.logger.info(
+                f"Executed {executed_command} command in {context.guild.name} (ID: {context.guild.id}) by {context.author} (ID: {context.author.id})"
+            )
+        else:
+            self.logger.info(
+                f"Executed {executed_command} command by {context.author} (ID: {context.author.id}) in DMs"
+            )
+
+    async def on_command_error(self, context: commands.Context, error: commands.CommandError) -> None:
+        if isinstance(error, commands.MissingPermissions):
+            embed: discord.Embed = discord.Embed(
+                description=f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!",
+                color=discord.Color.dark_grey()
+            )
+            await context.send(embed=embed)
+        elif isinstance(error, commands.BotMissingPermissions):
+            embed: discord.Embed = discord.Embed(
+                description=f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!",
+                color=discord.Color.dark_grey()
+            )
+            await context.send(embed=embed)
+        elif isinstance(error, commands.MissingRequiredArgument):
+            embed: discord.Embed = discord.Embed(
+                title="Error!",
+                description=str(error).capitalize(),
+                color=discord.Color.dark_grey()
+            )
+            await context.send(embed=embed)
+        else:
+            raise error
+        self.logger.warning(f"Command error handled: {type(error).__name__}")
+
+    async def on_message(self, message: discord.Message) -> None:
         if message.author.bot:
             return
         
-        ctx = await self.get_context(message)
+        ctx: commands.Context = await self.get_context(message)
         await self.invoke(ctx)
 
-    async def process_commands(self, message: discord.Message):
-        ctx = await self.get_context(message)
+    async def process_commands(self, message: discord.Message) -> None:
+        ctx: commands.Context = await self.get_context(message)
 
         if ctx.command is None:
             return
 
         await self.invoke(ctx)
 
-    async def on_command(self, ctx: commands.Context):
+    async def on_command(self, ctx: commands.Context) -> None:
         self.command_stats[ctx.command.qualified_name] += 1
-        message = ctx.message
+        message: discord.Message = ctx.message
         if isinstance(message.channel, discord.TextChannel):
             self.command_types_used[message.channel.type] += 1
+        self.logger.info(f"Command '{ctx.command.qualified_name}' invoked")
 
-    async def close(self):
+    async def close(self) -> None:
         await super().close()
         if self.session:
             await self.session.close()
+        self.logger.info("Bot closed successfully")
 
-    async def start(self):
+    async def start(self) -> None:
         load_dotenv()
         await super().start(os.getenv('TOKEN'))
+        self.logger.info("Bot started successfully")
