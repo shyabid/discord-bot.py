@@ -2,6 +2,4 @@
 **/__pycache__/
 app.log
 roadmap.txt
-data.py
 test.py
-./cogs/reactionrole.py

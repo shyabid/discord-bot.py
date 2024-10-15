@@ -25,7 +25,7 @@ async def translate_ctx_menu(
                     data: Dict[str, Any] = await response.json()
                     translated: Optional[str] = data.get("translated")
                     if translated:
-                        await interaction.response.send_message(f"` translation: ` {translated}")
+                        await interaction.response.send_message(embed=discord.Embed(description=f"` translation: ` {translated}", color=discord.Color.dark_grey()))
                     else:
                         await interaction.response.send_message("Translation failed: No translated text received.")
                 else:
@@ -80,7 +80,11 @@ class Translate(commands.Cog):
                         data: Dict[str, Any] = await response.json()
                         translation: Optional[str] = data.get('translated')
                         if translation:
-                            await ctx.reply(f"` translation: ` {translation}")
+                            embed = discord.Embed(
+                                description=f"` translation: ` {translation}", 
+                                color=discord.Color.dark_grey()
+                            )
+                            await ctx.reply(embed=embed)
                         else:
                             await ctx.reply("Translation failed: No translated text received.")
                     else:

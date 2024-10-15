@@ -1,6 +1,7 @@
 from discord.ext import commands
 import discord
 import aiohttp
+from discord import app_commands
 from typing import Optional, Dict, Any
 
 class Fun(commands.Cog):
@@ -349,6 +350,264 @@ class Fun(commands.Cog):
         ?roast
         """
         await self.roast(ctx, target=target)
+    @fun.command(
+        name="biden",
+        description="Generate a Biden meme image"
+    )
+    @app_commands.describe(text="The text to display on the Biden meme image")
+    async def biden(self, ctx: commands.Context, *, text: str):
+        """
+        Generate a Biden meme image with custom text.
+
+        **Usage:**
+        /fun biden <text>
+
+        **Parameters:**
+        text (str): The text to display on the Biden meme image.
+
+        **Example:**
+        /fun biden Hello world!
+        """
+        formatted_text = text.replace(" ", "+")
+        url = f"https://api.popcat.xyz/biden?text={formatted_text}"
+
+        embed = discord.Embed(
+            color=discord.Color.dark_grey()
+        )
+        embed.set_image(url=url)
+
+        await ctx.reply(embed=embed)
+
+    @commands.command(
+        name="biden",
+        description="Generate a Biden meme image"
+    )
+    async def biden_command(self, ctx: commands.Context, *, text: str):
+        """
+        Generate a Biden meme image with custom text.
+
+        **Usage:**
+        ?fun biden <text>
+
+        **Parameters:**
+        text (str): The text to display on the Biden meme image.
+
+        **Example:**
+        ?fun biden Hello world!
+        """
+        await self.biden(ctx, text=text)
+
+    @fun.command(
+        name="oogway",
+        description="Generate an Oogway meme image"
+    )
+    @app_commands.describe(text="The text to display on the Oogway meme image")
+    async def oogway(self, ctx: commands.Context, *, text: str):
+        """
+        Generate an Oogway meme image with custom text.
+
+        **Usage:**
+        /fun oogway <text>
+
+        **Parameters:**
+        text (str): The text to display on the Oogway meme image.
+
+        **Example:**
+        /fun oogway There are no accidents
+        """
+        formatted_text = text.replace(" ", "+")
+        url = f"https://api.popcat.xyz/oogway?text={formatted_text}"
+
+        embed = discord.Embed(
+            color=discord.Color.dark_grey()
+        )
+        embed.set_image(url=url)
+
+        await ctx.reply(embed=embed)
+
+    @commands.command(
+        name="oogway",
+        description="Generate an Oogway meme image"
+    )
+    async def oogway_command(self, ctx: commands.Context, *, text: str):
+        """
+        Generate an Oogway meme image with custom text.
+
+        **Usage:**
+        ?fun oogway <text>
+
+        **Parameters:**
+        text (str): The text to display on the Oogway meme image.
+
+        **Example:**
+        ?fun oogway There are no accidents
+        """
+        await self.oogway(ctx, text=text)
+
+    @fun.command(
+        name="pikachu",
+        description="Generate a Pikachu meme image"
+    )
+    @app_commands.describe(text="The text to display on the Pikachu meme image")
+    async def pikachu(self, ctx: commands.Context, *, text: str):
+        """
+        Generate a Pikachu meme image with custom text.
+
+        **Usage:**
+        /fun pikachu <text>
+
+        **Parameters:**
+        text (str): The text to display on the Pikachu meme image.
+
+        **Example:**
+        /fun pikachu Pika pika!
+        """
+        formatted_text = text.replace(" ", "+")
+        url = f"https://api.popcat.xyz/pikachu?text={formatted_text}"
+
+        embed = discord.Embed(
+            color=discord.Color.dark_grey()
+        )
+        embed.set_image(url=url)
+
+        await ctx.reply(embed=embed)
+
+    @commands.command(
+        name="pikachu",
+        description="Generate a Pikachu meme image"
+    )
+    async def pikachu_command(self, ctx: commands.Context, *, text: str):
+        """
+        Generate a Pikachu meme image with custom text.
+
+        **Usage:**
+        ?fun pikachu <text>
+
+        **Parameters:**
+        text (str): The text to display on the Pikachu meme image.
+
+        **Example:**
+        ?fun pikachu Pika pika!
+        """
+        await self.pikachu(ctx, text=text)
+
+    @fun.command(
+        name="reverse",
+        description="Reverse the given text"
+    )
+    @app_commands.describe(text="The text to reverse")
+    async def reverse_slash(self, ctx: commands.Context, *, text: str):
+        """
+        Reverse the given text.
+
+        **Usage:**
+        /fun reverse <text>
+
+        **Parameters:**
+        text (str): The text to reverse.
+
+        **Example:**
+        /fun reverse Hello World
+        """
+        formatted_text = text.replace(" ", "+")
+        url = f"https://api.popcat.xyz/reverse?text={formatted_text}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    reversed_text = data.get("text", "Error: No reversed text returned")
+                    
+                    embed = discord.Embed(
+                        description=reversed_text,
+                        color=discord.Color.dark_grey()
+                    )
+                    
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(embed=embed)
+                    else:
+                        await ctx.reply(embed=embed)
+                else:   
+                    error_message = "Failed to reverse the text. Please try again."
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(error_message, ephemeral=True)
+                    else:
+                        await ctx.reply(error_message)
+
+    @commands.command(name="reverse", description="Reverse the given text")
+    async def reverse_command(self, ctx: commands.Context, *, text: str):
+        """
+        Reverse the given text.
+
+        **Usage:**
+        ?reverse <text>
+
+        **Parameters:**
+        text (str): The text to reverse.
+
+        **Example:**
+        ?reverse Hello World
+        """
+        await self.reverse_slash(ctx, text=text)
+
+    @fun.command(
+        name="lulify",
+        description="Convert text to lulcat speak"
+    )
+    @app_commands.describe(text="The text to convert to lulcat speak")
+    async def lulify(self, ctx: commands.Context, *, text: str):
+        """
+        Translate your text into funny Lul Cat Language! 
+
+        **Usage:**
+        /fun lulify <text>
+
+        **Parameters:**
+        text (str): The text to convert to luliflied speak.
+
+        **Example:**
+        /fun lulify Hello World
+        """
+        formatted_text = text.replace(" ", "+")
+        url = f"https://api.popcat.xyz/lulcat?text={formatted_text}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    lulcat_text = data.get("text", "Error: No lulified text returned")
+                    
+                    embed = discord.Embed(
+                        description=lulcat_text,
+                        color=discord.Color.dark_grey()
+                    )
+                    
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(embed=embed)
+                    else:
+                        await ctx.reply(embed=embed)
+                else:   
+                    error_message = "Failed to convert text to lulified text. Please try again."
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(error_message, ephemeral=True)
+                    else:
+                        await ctx.reply(error_message)
+
+    @commands.command(name="lulify", description="Translate your text into funny Lul Cat Language! ")
+    async def lulify_command(self, ctx: commands.Context, *, text: str):
+        """
+        Translate your text into funny Lul Cat Language! 
+
+        **Usage:**
+        ?lulify <text>
+
+        **Parameters:**
+        text (str): The text to convert to lulified speak.
+
+        **Example:**
+        ?lulify Hello World
+        """
+        await self.lulify(ctx, text=text)
 
 async def setup(
         bot: commands.Bot

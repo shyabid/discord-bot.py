@@ -26,10 +26,14 @@ EXTENSIONS: List[str] = [
     'cogs.role',
     'cogs.welcomer',
     'cogs.news',
-    'cogs.nerd',
+    'cogs.misc',
+    'cogs.quiz',
     'cogs.fun',
     'cogs.anime',
-    'cogs.help'
+    'cogs.help',
+    'cogs.auto',
+    'cogs.user',
+    'cogs.snipe'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -70,7 +74,6 @@ class Bot(commands.AutoShardedBot):
         
         group_commands: List[commands.Group] = [
             BotGroup(name="bot", description="bot commands"),
-            UserGroup(name="user", description="user commands"),
             ModGroup(name="moderation", description="moderation commands"),
             HolyGroup(name="holy", description="holy commands")
         ]

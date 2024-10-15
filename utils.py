@@ -4,7 +4,6 @@ import typing
 from difflib import SequenceMatcher
 import re
 
-
 class PaginationView(discord.ui.View):
     def __init__(
             self, 
