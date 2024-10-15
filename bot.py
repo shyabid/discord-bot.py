@@ -24,7 +24,12 @@ EXTENSIONS: List[str] = [
     'cogs.afk',
     'cogs.embed',
     'cogs.role',
-    'cogs.welcomer'
+    'cogs.welcomer',
+    'cogs.news',
+    'cogs.nerd',
+    'cogs.fun',
+    'cogs.anime',
+    'cogs.help'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -48,7 +53,6 @@ class Bot(commands.AutoShardedBot):
         self.logger: logging.Logger = logging.getLogger('bot')
         self.logger.info("Bot instance initialized successfully")
 
-
     async def setup_hook(
         self
     ) -> None:
@@ -68,8 +72,7 @@ class Bot(commands.AutoShardedBot):
             BotGroup(name="bot", description="bot commands"),
             UserGroup(name="user", description="user commands"),
             ModGroup(name="moderation", description="moderation commands"),
-            HolyGroup(name="holy", description="holy commands"),
-            AnimeGroup(name="anime", description="anime commands")
+            HolyGroup(name="holy", description="holy commands")
         ]
 
         for group in group_commands:
@@ -87,7 +90,6 @@ class Bot(commands.AutoShardedBot):
         
         try:
             self.tree.command(name="interactions", description="interact with a discord user through GIFs")(interactioncmd)
-            self.tree.command(name="help", description="Check the bot's latency")(helpcmd)
             self.logger.info("Successfully added interactions and help slash commands")
         except Exception as e:
             self.logger.error(f'Failed to add slash command: {e}')
@@ -95,6 +97,11 @@ class Bot(commands.AutoShardedBot):
         await self.change_presence(status=discord.Status.dnd)
         self.logger.info("Bot presence changed to DND")
                 
+
+        
+        self.logger.info("Finished the setup_hook function")
+
+    async def on_ready(self) -> None:
         try:
             # only syncs in test guild for faster sync
             # will remove later when it's production ready
@@ -105,11 +112,6 @@ class Bot(commands.AutoShardedBot):
                 self.logger.info("Successfully synced commands to test guild")
         except Exception as e:
             self.logger.error(f'Failed to sync: {e}')
-        
-        self.logger.info("Finished the setup_hook function")
-
-    async def on_ready(self) -> None:
-        self.remove_command('help')
         self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
 
     async def on_command_completion(
@@ -134,13 +136,16 @@ class Bot(commands.AutoShardedBot):
         error: commands.CommandError
     ) -> None:
 
+        if isinstance(error, commands.CommandNotFound):
+            self.logger.warning(f"CommandNotFound error: {error}")
+            return
+
         if isinstance(error, commands.MissingPermissions):
             embed: discord.Embed = discord.Embed(
                 description=f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!",
                 color=discord.Color.dark_grey()
             )
             await context.send(embed=embed)
-
         elif isinstance(error, commands.BotMissingPermissions):
             embed: discord.Embed = discord.Embed(
                 description=f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!",
@@ -160,6 +165,7 @@ class Bot(commands.AutoShardedBot):
             raise error
 
         self.logger.warning(f"Command error handled: {type(error).__name__}")
+
 
     async def on_message(
         self, 

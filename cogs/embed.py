@@ -163,6 +163,20 @@ class Embed(commands.Cog):
     )
     @app_commands.describe(name="Give a name for your embed. It should be unique and one worded.")
     async def embed_create(self, ctx: commands.Context, name: str):
+        """
+        Create a new embed with a unique name.
+
+        **Usage:**
+        ?embed create <name>
+        /embed create <name>
+
+        **Parameters:**
+        name (str): The name for your embed. It should be unique and one worded.
+
+        **Example:**
+        ?embed create welcome_message
+        /embed create server_rules
+        """
         if not ctx.author.guild_permissions.manage_guild:
             await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
             return
@@ -181,6 +195,20 @@ class Embed(commands.Cog):
         description="List all the embeds in this guild."
     )
     async def embed_list(self, ctx: commands.Context):
+        """
+        List all the embeds in this guild.
+
+        **Usage:**
+        ?embed list
+        /embed list
+
+        **Parameters:**
+        None
+
+        **Example:**
+        ?embed list
+        /embed list
+        """
         if not ctx.author.guild_permissions.manage_guild:
             await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
             return
@@ -205,6 +233,20 @@ class Embed(commands.Cog):
     )
     @app_commands.describe(name="Name of the embed that you want to delete")
     async def embed_delete(self, ctx: commands.Context, name: str):
+        """
+        Delete an embed by its name.
+
+        **Usage:**
+        ?embed delete <name>
+        /embed delete <name>
+
+        **Parameters:**
+        name (str): The name of the embed that you want to delete.
+
+        **Example:**
+        ?embed delete welcome_message
+        /embed delete server_rules
+        """
         if not ctx.author.guild_permissions.manage_guild:
             await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
             return
@@ -230,6 +272,20 @@ class Embed(commands.Cog):
     @app_commands.autocomplete(name=autocomplete())
     @app_commands.describe(name="Name of the embed that you want to edit")
     async def embed_edit(self, ctx: commands.Context, name: str):
+        """
+        Edit an existing embed by its name.
+
+        **Usage:**
+        ?embed edit <name>
+        /embed edit <name>
+
+        **Parameters:**
+        name (str): The name of the embed that you want to edit.
+
+        **Example:**
+        ?embed edit welcome_message
+        /embed edit server_rules
+        """
         if not ctx.author.guild_permissions.manage_guild:
             await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
             return
@@ -263,4 +319,3 @@ class Embed(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Embed(bot))
-    

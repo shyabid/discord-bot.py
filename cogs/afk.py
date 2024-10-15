@@ -52,13 +52,28 @@ class Afk(commands.Cog):
         name="afk",
         description="Set your status to AFK"
     )
-    async def set_afk(self, ctx: commands.Context, *, reason: str= None):
+    async def set_afk(self, ctx: commands.Context, *, reason: Optional[str] = None) -> None:
+        """
+        Set your status to AFK with an optional reason.
+
+        **Usage:**
+        ?afk [reason]
+        /afk [reason]
+
+        **Parameters:**
+        reason (str, optional): The reason for going AFK. If not provided, a default reason will be used.
+
+        **Example:**
+        ?afk Going to sleep
+        ?afk
+        /afk Busy with work
+        /afk
+        """
         reason = reason or "I'm AFK :)"
         if not ctx.guild:
             return await ctx.reply("This command can only be used in a server.")
 
         try:
-
             existing_afk = self.client[str(ctx.guild.id)]["afks"].find_one({"userid": ctx.author.id})
             if existing_afk:
                 await ctx.reply("You are already set as AFK.")
@@ -76,4 +91,3 @@ class Afk(commands.Cog):
             
 async def setup(bot):
     await bot.add_cog(Afk(bot))
-    

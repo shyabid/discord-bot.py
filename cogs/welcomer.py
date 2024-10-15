@@ -7,10 +7,7 @@ from typing import (
     Dict,
     List,
     Optional,
-    Union,
-    Tuple,
-    Any,
-    Callable
+    Any
 )
 from urllib.parse import urlparse
 
@@ -23,51 +20,26 @@ def parse_welcomer_content(
         '{user.name}': member.name,
         '{user.display_name}': member.display_name,
         '{user.id}': str(member.id),
+        '{user.avatar}': str(member.avatar.url if member.avatar else ''),
         '{guild.name}': member.guild.name,
         '{guild.id}': str(member.guild.id),
-        '{guild.member_count}': str(
-            member.guild.member_count
-        ),
+        '{guild.member_count}': str(member.guild.member_count),
         '{guild.owner}': str(member.guild.owner),
         '{guild.owner.name}': member.guild.owner.name,
-        '{guild.owner.mention}': (
-            member.guild.owner.mention
-        ),
-        '{guild.created_at}': str(
-            member.guild.created_at
-        ),
+        '{guild.owner.mention}': (member.guild.owner.mention),
+        '{guild.created_at}': str(member.guild.created_at),
         '{user.created_at}': str(member.created_at),
         '{user.joined_at}': str(member.joined_at),
-        '{user.avatar_url}': str(
-            member.avatar.url if member.avatar else ''
-        ),
-        '{guild.icon}': str(
-            member.guild.icon.url
-            if member.guild.icon else ''
-        ),
-        '{guild.banner}': str(
-            member.guild.banner.url
-            if member.guild.banner else ''
-        ),
-        '{guild.description}': (
-            member.guild.description or ''
-        ),
-        '{guild.features}': ', '.join(
-            member.guild.features
-        ),
-        '{guild.premium_tier}': str(
-            member.guild.premium_tier
-        ),
-        '{guild.premium_subscribers}': str(
-            len(member.guild.premium_subscribers)
-        ),
-        '{guild.roles}': ', '.join(
-            [role.name for role in member.guild.roles]
-        ),
+        '{user.avatar_url}': str(member.avatar.url if member.avatar else ''),
+        '{guild.icon}': str(member.guild.icon.url if member.guild.icon else ''),
+        '{guild.banner}': str(member.guild.banner.url if member.guild.banner else ''),
+        '{guild.description}': (member.guild.description or ''),
+        '{guild.features}': ', '.join(member.guild.features),
+        '{guild.premium_tier}': str(member.guild.premium_tier),
+        '{guild.premium_subscribers}': str(len(member.guild.premium_subscribers)),
+        '{guild.roles}': ', '.join([role.name for role in member.guild.roles]),
         '{user.top_role}': member.top_role.name,
-        '{user.roles}': ', '.join(
-            [role.name for role in member.roles]
-        ),
+        '{user.roles}': ', '.join([role.name for role in member.roles]),
     }
 
     def replace_placeholder(
@@ -198,7 +170,7 @@ class WelcomerSetupSelect(discord.ui.Select):
             description=(
                 "Please select the channel for welcome messages."
             ),
-            color=discord.Color.blue()
+            color=discord.Color.dark_grey()
         )
         await interaction.response.send_message(
             embed=embed, 
@@ -586,6 +558,12 @@ class Welcomer(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
+        """
+        Manage the welcome message for new members.
+        - test: Test the welcome message
+
+        If no subcommand is provided, this command will display help information.
+        """
         if ctx.invoked_subcommand is None:
             help_embed = discord.Embed(
                 title="Welcomer Commands",
@@ -597,7 +575,7 @@ class Welcomer(commands.Cog):
 - `?welcomer test`
   - Test the welcome message
                 """,
-                color=discord.Color.blue()
+                color=discord.Color.dark_grey()
             )
             await ctx.reply(embed=help_embed)
 
@@ -610,6 +588,18 @@ class Welcomer(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
+        """
+        Edit the welcome message.
+
+        **Usage:**
+        ?welcomer edit
+        /welcomer edit
+
+        This command allows you to customize various aspects of the welcome message,
+        including the title, description, color, footer, author, thumbnail, and image.
+
+        **Note:** You must have the 'Manage Server' permission to use this command.
+        """
         welcomer_data = db[str(ctx.guild.id)]["welcomer"].find_one()
         if not welcomer_data:
             welcomer_data = {
@@ -737,6 +727,22 @@ class Welcomer(commands.Cog):
         ctx: commands.Context,
         state: str
     ) -> None:
+        """
+        Turn the welcomer on or off.
+
+        **Usage:**
+        ?welcomer toggle <state>
+        /welcomer toggle <state>
+
+        **Parameters:**
+        state: Either 'on' or 'off' to enable or disable the welcomer.
+
+        **Example:**
+        ?welcomer toggle on
+        /welcomer toggle off
+
+        **Note:** You must have the 'Manage Server' permission to use this command.
+        """
         if state.lower() not in ['on', 'off']:
             await ctx.reply(
                 "Please specify either 'on' or 'off'."
@@ -761,6 +767,18 @@ class Welcomer(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
+        """
+        Test the welcome message.
+
+        **Usage:**
+        ?welcomer test
+        /welcomer test
+
+        This command will display a preview of the current welcome message,
+        allowing you to see how it will appear for new members.
+
+        **Note:** You must have the 'Manage Server' permission to use this command.
+        """
         welcomer_data = db[str(ctx.guild.id)]["welcomer"].find_one()
         if not welcomer_data:
             welcomer_data = {
