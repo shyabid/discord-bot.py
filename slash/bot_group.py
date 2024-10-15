@@ -249,3 +249,37 @@ class BotGroup(app_commands.Group):
             error_embed.add_field(name="Traceback", value=f"```py\n{''.join(traceback.format_tb(e.__traceback__))}\n```", inline=False)
             
             await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+    @app_commands.command(name="sync", description="Sync application commands for a specific guild")
+    @app_commands.check(lambda interaction: interaction.user.id in [
+        interaction.client.owner_id,
+        1076064221210628118,  
+        876869802948452372
+    ])
+    async def sync(self, interaction: discord.Interaction, guild_id: str):
+        """
+        Sync application commands for a specific guild.
+        Only the bot owner and authorized users can use this command.
+
+        Parameters:
+        -----------
+        guild_id: str
+            The ID of the guild to sync commands for.
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            guild_id = int(guild_id)
+            guild = interaction.client.get_guild(guild_id)
+
+            if guild is None:
+                await interaction.followup.send(f"Error: Could not find a guild with ID {guild_id}")
+                return
+            interaction.client.tree.copy_global_to(guild=guild)
+            await interaction.client.tree.sync(guild=guild)
+            await interaction.followup.send(f"Successfully synced application commands for guild: {guild.name} (ID: {guild.id})")
+
+        except ValueError:
+            await interaction.followup.send("Error: Invalid guild ID. Please provide a valid integer ID.")
+        except Exception as e:
+            await interaction.followup.send(f"An error occurred while syncing: {str(e)}")
