@@ -16,6 +16,7 @@ class Anime(commands.Cog):
         name="anime",
         description="Anime-related commands"
     )
+    @commands.check_any(commands.has)
     async def anime(
         self,
         ctx: commands.Context
@@ -256,7 +257,7 @@ class Anime(commands.Cog):
                     embeds.append(embed)
 
                 if embeds:
-                    view: PaginationView = PaginationView(embeds)
+                    view: PaginationView = PaginationView(embeds, ctx.author)
                     message: discord.Message = await ctx.reply(embed=embeds[0], view=view)
                     view.message = message
                 else:
@@ -290,6 +291,9 @@ class Anime(commands.Cog):
         ?search "My Hero Academia"
         """
         await self.search(ctx, name)
+
+
+
 
 async def setup(
     bot: commands.Bot

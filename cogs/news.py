@@ -26,12 +26,13 @@ class News(commands.Cog):
             embed = discord.Embed(
                 title=article['title'],
                 description=article['summary'],
-                color=discord.Color.dark_grey()
+                color=discord.Color.blue()
             )
             if article['news_link'] and self.is_valid_url(article['news_link']):
                 embed.url = article['news_link']
             if article['image_link'] and self.is_valid_url(article['image_link']):
                 embed.set_thumbnail(url=article['image_link'])
+            embed.set_footer(text=f"Page {index}/{len(news_data.get(category, []))}")
             embeds.append(embed)
         return embeds
 
@@ -39,7 +40,7 @@ class News(commands.Cog):
         try:
             result = urlparse(url)
             return all([result.scheme, result.netloc])
-        except ValueError:
+        except ValueError:  
             return False
 
     async def category_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
@@ -51,16 +52,32 @@ class News(commands.Cog):
             app_commands.Choice(name=cat, value=cat)
             for cat in self._news_categories
             if current.lower() in cat.lower()
-        ][:25] 
+        ][:25]  # Discord limits choices to 25
 
     @commands.hybrid_command(name="news", description="Get the latest news")
     @app_commands.autocomplete(category=category_autocomplete)
     async def news_hybrid(self, ctx: commands.Context, category: str = "Latest"):
+        """
+        Get the latest news from a specific category.
+
+        **Usage:**
+        ?news [category]
+        /news [category]
+
+        **Parameters:**
+        category (optional): The news category to fetch. If not provided, 'Latest' will be used.
+
+        **Example:**
+        ?news Technology
+        ?news
+        /news Sports
+        /news
+        """
         await ctx.defer()
         news_data = await self.fetch_news_data()
         
         if not news_data:
-            await ctx.reply("Failed to fetch news data.")
+            await ctx.send("Failed to fetch news data.")
             return
 
         self._news_categories = list(news_data.keys())
@@ -71,11 +88,11 @@ class News(commands.Cog):
         embeds = await self.create_news_embeds(news_data, category)
         
         if not embeds:
-            await ctx.reply(f"No news found for category: {category}")
+            await ctx.send(f"No news found for category: {category}")
             return
 
-        view = PaginationView(embeds)
-        await ctx.reply(embed=embeds[0], view=view)
+        view = PaginationView(embeds, ctx.author)
+        await ctx.send(embed=embeds[0], view=view)
         view.message = await ctx.interaction.original_response()
 
     @commands.Cog.listener()
@@ -83,6 +100,7 @@ class News(commands.Cog):
         error = args[0] if args else None
         if isinstance(error, discord.errors.HTTPException) and error.code == 50035:
             self.bot.logger.error(f"HTTPException in {event}: {error}")
+            # You might want to send a message to a log channel or the user here
         else:
             self.bot.logger.error(f"Error in {event}: {error}")
 

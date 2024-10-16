@@ -8,6 +8,3 @@ import os
 from dotenv import load_dotenv; load_dotenv()
 
 db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
-
-
-        

@@ -63,6 +63,10 @@ class WelcomerSetupSelect(discord.ui.Select):
     ) -> None:
         options: List[discord.SelectOption] = [
             discord.SelectOption(
+                label="Message",
+                description="Set the normal text message"
+            ),
+            discord.SelectOption(
                 label="Embed Title",
                 description="Set the title of the embed"
             ),
@@ -91,9 +95,17 @@ class WelcomerSetupSelect(discord.ui.Select):
                 description="Set the color of the embed"
             ),
             discord.SelectOption(
+                label="Add Button",
+                description="Add a button to the message"
+            ),
+            discord.SelectOption(
+                label="Remove Button",
+                description="Remove a button from the message"
+            ),
+            discord.SelectOption(
                 label="Finish",
                 description="Finish setting up the welcomer"
-            )
+            ),
         ]
         super().__init__(
             placeholder="Choose a field to edit",
@@ -108,10 +120,7 @@ class WelcomerSetupSelect(discord.ui.Select):
             welcomer_data or {}
         )
 
-    async def callback(
-        self, 
-        interaction: discord.Interaction
-    ) -> None:
+    async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
                 "You are not authorized to use this menu.",
@@ -122,6 +131,10 @@ class WelcomerSetupSelect(discord.ui.Select):
         selected_option: str = self.values[0]
         if selected_option == "Finish":
             await self.finish_setup(interaction)
+        elif selected_option == "Remove Button":
+            modal = RemoveButtonModal(self.bot, interaction.guild.id, self.welcomer_data)
+            await interaction.response.send_modal(modal)
+            await modal.wait()
         else:
             modal_class = {
                 "Embed Title": TitleModal,
@@ -130,7 +143,10 @@ class WelcomerSetupSelect(discord.ui.Select):
                 "Embed Author": AuthorModal,
                 "Embed Thumbnail": ThumbnailModal,
                 "Embed Image": ImageModal,
-                "Embed Color": ColorModal
+                "Embed Color": ColorModal,
+                "Message": MessageModal,
+                "Add Button": ButtonModal,
+                "Remove Button": RemoveButtonModal,
             }[selected_option]
             
             modal: BaseModal = modal_class(
@@ -140,8 +156,109 @@ class WelcomerSetupSelect(discord.ui.Select):
             )
             await interaction.response.send_modal(modal)
             await modal.wait()
+        
+        await self.update_preview_message(interaction)
+        self.disabled = False
+        
+        combined_view = discord.ui.View()
+        if 'buttons' in self.welcomer_data:
+            for button in self.welcomer_data['buttons']:
+                combined_view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
+        combined_view.add_item(self)
+        
+        await interaction.message.edit(view=combined_view)
+
+
+    async def update_preview_message(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed()
+        message_content = parse_welcomer_content(
+            self.welcomer_data.get('message', ''),
+            interaction.user
+        )
+        combined_view = discord.ui.View()
+        if 'buttons' in self.welcomer_data:
+            for button in self.welcomer_data['buttons']:
+                combined_view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
+        combined_view.add_item(self)
+        
+        if self.welcomer_data.get('title'):
+            embed.title = parse_welcomer_content(
+                self.welcomer_data['title'],
+                interaction.user
+            )
+        
+        if self.welcomer_data.get('description'):
+            embed.description = parse_welcomer_content(
+                self.welcomer_data['description'],
+                interaction.user
+            )
+        
+        if self.welcomer_data.get('color'):
+            embed.color = discord.Color.from_str(
+                self.welcomer_data['color']
+            )
+        
+        if self.welcomer_data.get('footer'):
+            embed.set_footer(
+                text=parse_welcomer_content(
+                    self.welcomer_data['footer'].get('text', ''),
+                    interaction.user
+                ),
+                icon_url=self.welcomer_data['footer'].get('icon_url')
+            )
+        
+        if self.welcomer_data.get('author'):
+            author_name = parse_welcomer_content(
+                self.welcomer_data['author'].get('name', ''),
+                interaction.user
+            )
+            author_url = self.welcomer_data['author'].get('url')
+            author_icon_url = parse_welcomer_content(
+                self.welcomer_data['author'].get('icon_url', ''),
+                interaction.user
+            )
             
-            await self.update_preview_embed(interaction)
+            if author_icon_url and self.is_valid_url(author_icon_url):
+                embed.set_author(
+                    name=author_name,
+                    url=author_url,
+                    icon_url=author_icon_url
+                )
+            else:
+                embed.set_author(
+                    name=author_name,
+                    url=author_url
+                )
+        
+        if self.welcomer_data.get('thumbnail_url'):
+            thumbnail_url = parse_welcomer_content(
+                self.welcomer_data['thumbnail_url'],
+                interaction.user
+            )
+            if thumbnail_url and self.is_valid_url(thumbnail_url):
+                embed.set_thumbnail(url=thumbnail_url)
+        
+        if self.welcomer_data.get('image_url'):
+            image_url = parse_welcomer_content(
+                self.welcomer_data['image_url'],
+                interaction.user
+            )
+            if image_url and self.is_valid_url(image_url):
+                embed.set_image(url=image_url)
+
+        await self.original_message.edit(
+            content="Current welcome message preview:" + ("\n" + message_content if message_content else ""),
+            embed=embed,
+            view=combined_view
+        )
 
     async def finish_setup(
         self, 
@@ -185,7 +302,19 @@ class WelcomerSetupSelect(discord.ui.Select):
         interaction: discord.Interaction
     ) -> None:
         embed: discord.Embed = discord.Embed()
-        
+        message_content = parse_welcomer_content(
+            self.welcomer_data.get('message', ''),
+            interaction.user
+        )
+        view = discord.ui.View()
+        if 'buttons' in self.welcomer_data:
+            for button in self.welcomer_data['buttons']:
+                view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
+
         if self.welcomer_data.get('title'):
             embed.title = parse_welcomer_content(
                 self.welcomer_data['title'],
@@ -197,6 +326,8 @@ class WelcomerSetupSelect(discord.ui.Select):
                 self.welcomer_data['description'],
                 interaction.user
             )
+        else:
+            embed.description = "\u200b"  # Add an empty character if no description
         
         if self.welcomer_data.get('color'):
             embed.color = discord.Color.from_str(
@@ -258,9 +389,11 @@ class WelcomerSetupSelect(discord.ui.Select):
                 embed.set_image(url=image_url)
 
         await self.original_message.edit(
-            content="Current welcome message preview:",
-            embed=embed
+            content="Current welcome message preview:" + ("\n" + message_content if message_content else ""),
+            embed=embed,
+            view=view
         )
+
 
     def is_valid_url(self, url: str) -> bool:
         try:
@@ -268,7 +401,7 @@ class WelcomerSetupSelect(discord.ui.Select):
             return all([result.scheme, result.netloc])
         except ValueError:
             return False
-            
+
 class WelcomerChannelSelect(discord.ui.Select):
     def __init__(
         self, 
@@ -504,6 +637,67 @@ class ThumbnailModal(BaseModal):
             self.thumbnail_url.value
         )
 
+class MessageModal(BaseModal):
+    message_content: discord.ui.TextInput = discord.ui.TextInput(
+        label="Message Content",
+        style=discord.TextStyle.paragraph,
+        required=False,
+        max_length=2000
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, welcomer_data: Dict[str, Any]):
+        super().__init__(bot, guild_id, welcomer_data)
+        self.message_content.default = welcomer_data.get('message', '')
+
+    def update_welcomer_data(self) -> None:
+        self.welcomer_data['message'] = self.message_content.value
+
+
+class ButtonModal(BaseModal):
+    button_label: discord.ui.TextInput = discord.ui.TextInput(
+        label="Button Label",
+        style=discord.TextStyle.short,
+        required=True
+    )
+    button_url: discord.ui.TextInput = discord.ui.TextInput(
+        label="Button URL",
+        style=discord.TextStyle.short,
+        required=True
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, welcomer_data: Dict[str, Any]):
+        super().__init__(bot, guild_id, welcomer_data)
+        self.button_label.default = ''
+        self.button_url.default = ''
+
+    def update_welcomer_data(self) -> None:
+        if 'buttons' not in self.welcomer_data:
+            self.welcomer_data['buttons'] = []
+        self.welcomer_data['buttons'].append({
+            'label': self.button_label.value,
+            'url': self.button_url.value
+        })
+
+
+class RemoveButtonModal(BaseModal):
+    button_label: discord.ui.TextInput = discord.ui.TextInput(
+        label="Button Label to Remove",
+        style=discord.TextStyle.short,
+        required=True
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, welcomer_data: Dict[str, Any]):
+        super().__init__(bot, guild_id, welcomer_data)
+        self.button_label.default = ''
+
+    def update_welcomer_data(self) -> None:
+        if 'buttons' in self.welcomer_data:
+            self.welcomer_data['buttons'] = [
+                button for button in self.welcomer_data['buttons']
+                if button['label'] != self.button_label.value
+            ]
+        
+
 class ImageModal(BaseModal):
     image_url = discord.ui.TextInput(
         label="Image URL",
@@ -624,14 +818,22 @@ class Welcomer(commands.Cog):
                 welcomer_data
             )
         
-        view = discord.ui.View()
+        combined_view = discord.ui.View()
         select = WelcomerSetupSelect(
             self.bot,
             ctx.author.id,
             ctx.message,
             welcomer_data
         )
-        view.add_item(select)
+        combined_view.add_item(select)
+        
+        if 'buttons' in welcomer_data:
+            for button in welcomer_data['buttons']:
+                combined_view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
         
         # Create initial preview embed
         embed = discord.Embed()
@@ -702,19 +904,18 @@ class Welcomer(commands.Cog):
             if image_url and self.is_valid_url(image_url):
                 embed.set_image(url=image_url)
         
+        message_content = parse_welcomer_content(welcomer_data.get('message', ''), ctx.author)
+        
         try:
             message = await ctx.reply(
-                "Please select the fields you want to edit "
-                "for your welcome message:",
-                view=view,
+                content="Please select the fields you want to edit for your welcome message:\n" + 
+                        (message_content if message_content else ""),
+                view=combined_view,
                 embed=embed
             )
             select.original_message = message
         except discord.errors.HTTPException as e:
-            error_message = (
-                f"An error occurred while creating "
-                f"the preview: {str(e)}"
-            )
+            error_message = f"An error occurred while creating the preview: {str(e)}"
             await ctx.reply(error_message)
 
     @welcomer_group.command(
@@ -816,6 +1017,8 @@ class Welcomer(commands.Cog):
                 welcomer_data['description'],
                 ctx.author
             )
+        else:
+            embed.description = "\u200b"  # Add an empty character if no description
         
         if welcomer_data.get('color'):
             embed.color = discord.Color.from_str(
@@ -874,8 +1077,18 @@ class Welcomer(commands.Cog):
             if image_url and self.is_valid_url(image_url):
                 embed.set_image(url=image_url)
 
+        message_content = parse_welcomer_content(welcomer_data.get('message', ''), ctx.author)
+        view = discord.ui.View()
+        if 'buttons' in welcomer_data:
+            for button in welcomer_data['buttons']:
+                view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
+
         try:
-            await ctx.send(embed=embed)
+            await ctx.send(content=message_content, embed=embed, view=view)
         except discord.errors.HTTPException as e:
             error_message = (
                 f"An error occurred while sending "
@@ -994,8 +1207,18 @@ class Welcomer(commands.Cog):
             ):
                 embed.set_thumbnail(url=thumbnail_url)
 
+        message_content = parse_welcomer_content(welcomer_data.get('message', ''), member)
+        view = discord.ui.View()
+        if 'buttons' in welcomer_data:
+            for button in welcomer_data['buttons']:
+                view.add_item(discord.ui.Button(
+                    label=button['label'], 
+                    url=button['url'],
+                    style=discord.ButtonStyle.grey
+                ))
+
         try:
-            await channel.send(embed=embed)
+            await channel.send(content=message_content, embed=embed, view=view)
         except discord.errors.HTTPException as e:
             print(
                 f"An error occurred while sending "

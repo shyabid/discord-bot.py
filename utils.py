@@ -3,11 +3,19 @@ import discord
 import typing
 from difflib import SequenceMatcher
 import re
+import traceback
+import discord
+from discord.ext import commands
+from datetime import datetime
+from db import db
+
+
 
 class PaginationView(discord.ui.View):
     def __init__(
             self, 
-            embeds: list[discord.Embed]
+            embeds: list[discord.Embed],
+            author: discord.Member
     ) -> None:
         super().__init__(
             timeout=300
@@ -15,12 +23,19 @@ class PaginationView(discord.ui.View):
         self.embeds: list[discord.Embed] = embeds
         self.index: int = 0
         self.message: typing.Optional[discord.Message] = None
+        self.author: discord.Member = author
         self.update_buttons()
 
     def update_buttons(self) -> None:
         self.previous_button.disabled = (self.index == 0)
         self.next_button.disabled = (self.index == len(self.embeds) - 1)
         self.page_indicator.label = f"{self.index + 1}/{len(self.embeds)}"
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user != self.author:
+            await interaction.response.send_message("This button is not for you", ephemeral=True)
+            return False
+        return True
 
     @discord.ui.button(
             label="<", 
@@ -129,7 +144,7 @@ async def find_member(
     best_score: float = 0
 
     for member in guild.members:
-        if query in str(member.id):
+        if query.isdigit() and str(member.id).startswith(query):
             return member
 
         username_score = calculate_similarity(query, member.name)

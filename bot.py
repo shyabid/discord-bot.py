@@ -13,7 +13,6 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from collections import Counter
 from discord.ext import commands
-
 from db import db
 from slash import *
 from cogs.translate import translate_ctx_menu
@@ -33,7 +32,8 @@ EXTENSIONS: List[str] = [
     'cogs.help',
     'cogs.auto',
     'cogs.user',
-    'cogs.snipe'
+    'cogs.snipe',
+    'cogs.mod'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -57,10 +57,7 @@ class Bot(commands.AutoShardedBot):
         self.logger: logging.Logger = logging.getLogger('bot')
         self.logger.info("Bot instance initialized successfully")
 
-    async def setup_hook(
-        self
-    ) -> None:
-
+    async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
         self.logger.info("aiohttp ClientSession created")
         
@@ -74,7 +71,6 @@ class Bot(commands.AutoShardedBot):
         
         group_commands: List[commands.Group] = [
             BotGroup(name="bot", description="bot commands"),
-            ModGroup(name="moderation", description="moderation commands"),
             HolyGroup(name="holy", description="holy commands")
         ]
 
@@ -132,7 +128,6 @@ class Bot(commands.AutoShardedBot):
             self.logger.info(
                 f"Executed {executed_command} command by {context.author} (ID: {context.author.id}) in DMs"
             )
-
     async def on_command_error(
         self, 
         context: commands.Context, 
@@ -145,30 +140,109 @@ class Bot(commands.AutoShardedBot):
 
         if isinstance(error, commands.MissingPermissions):
             embed: discord.Embed = discord.Embed(
+                title="Missing Permissions",
                 description=f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!",
                 color=discord.Color.dark_grey()
             )
-            await context.send(embed=embed)
+            await context.reply(embed=embed)
+
         elif isinstance(error, commands.BotMissingPermissions):
             embed: discord.Embed = discord.Embed(
+                title="Bot Missing Permissions",
                 description=f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!",
                 color=discord.Color.dark_grey()
             )
-            await context.send(embed=embed)
-
+            await context.reply(embed=embed)
+       
         elif isinstance(error, commands.MissingRequiredArgument):
+            command_name = context.command.qualified_name
+            params = [f"<{param}>" for param in context.command.clean_params]
+            usage = f"{self.command_prefix[0]}{command_name} {' '.join(params)}"
+            
+            missing_param = str(error.param)
+            description = f"```\n{usage}\n```"
+            
             embed: discord.Embed = discord.Embed(
-                title="Error!",
-                description=str(error).capitalize(),
+                title="Missing Required Argument(s)",
+                description=description,
                 color=discord.Color.dark_grey()
             )
-            await context.send(embed=embed)
+            await context.reply(embed=embed)
+
+        elif isinstance(error, commands.BadArgument):
+            embed: discord.Embed = discord.Embed(
+                title="Invalid Argument",
+                description=f"{str(error)}",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
+
+        elif isinstance(error, commands.MissingRole):
+            embed: discord.Embed = discord.Embed(
+                title="Missing Role",
+                description=f"You are missing the required role to use this command.",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
+
+        elif isinstance(error, commands.MissingAnyRole):
+            embed: discord.Embed = discord.Embed(
+                title="Missing Any Role",
+                description=f"You are missing one of the required roles to use this command.",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
+
+        elif isinstance(error, commands.NSFWChannelRequired):
+            embed: discord.Embed = discord.Embed(
+                title="NSFW Channel Required",
+                description=f"This command can only be used in NSFW channels.",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
+        
+        elif isinstance(error, commands.BadUnionArgument):
+            embed: discord.Embed = discord.Embed(
+                title="Invalid Argument",
+                description=f"Could not parse argument: {str(error)}",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
+
+        elif isinstance(error, commands.BadLiteralArgument):
+            embed: discord.Embed = discord.Embed(
+                title="Invalid Option",
+                description=f"Invalid option. Allowed values are: {', '.join(map(str, error.literals))}",
+                color=discord.Color.dark_grey()
+            )
+            await context.reply(embed=embed)
 
         else:
-            raise error
-
+            try:
+                owner = await self.fetch_user(876869802948452372)
+                
+                embed = discord.Embed(
+                    title="Bot Error",
+                    description=f"An error occurred in the bot{'.' if not context else f': {context.command.brief}'}",
+                    color=discord.Color.red(),
+                    timestamp=discord.utils.utcnow()
+                )
+                
+                embed.add_field(name="Error Type", value=type(error).__name__, inline=False)
+                embed.add_field(name="Error Message", value=str(error), inline=False)
+                
+                if context.command:
+                    embed.add_field(name="Command", value=context.command.name, inline=False)
+                
+                if context:
+                    embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
+                    embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=False)
+                    embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=False)
+        
+                await owner.send(embed=embed)
+            except Exception as e:
+                print(f"Failed to send error message to owner: {e}")
         self.logger.warning(f"Command error handled: {type(error).__name__}")
-
 
     async def on_message(
         self, 

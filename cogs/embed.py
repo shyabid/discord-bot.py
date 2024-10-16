@@ -2,7 +2,9 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 from db import db
+from urllib.parse import urlparse
 import typing
+from cogs.welcomer import parse_welcomer_content, WelcomerSetupSelect, BaseModal
 
 def get_embed_names(guild_id: str):
     embeds = db[guild_id]['embeds'].find({}, {"name": 1, "_id": 0})
@@ -16,120 +18,128 @@ def autocomplete():
         embed_names = get_embed_names(str(interaction.guild.id))
         return [
             app_commands.Choice(name=name, value=name)
-            for name in embed_names
+            for name in embed_names if current.lower() in name.lower()
         ]
     return autocompletion
 
-class EmbedMakerModal(discord.ui.Modal, title="Create/Update Reaction Role Embed"):
-    titletxt = discord.ui.TextInput(label="Title", placeholder="Enter the title for your embed", required=True, max_length=4000)
-    description = discord.ui.TextInput(label="Description", style=discord.TextStyle.paragraph, required=False, max_length=4000)
-    color = discord.ui.TextInput(label="Color (hex code)", required=False, max_length=7)
-    image_url = discord.ui.TextInput(label="Image URL", required=False)
-    
-    def __init__(self, bot, embed_name, embed_data=None, original_message=None):
-        super().__init__()
-        self.bot = bot
-        self.embed_name = embed_name
+class TitleModal(BaseModal):
+    title = discord.ui.TextInput(
+        label="Embed Title",
+        style=discord.TextStyle.short,
+        required=False
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, embed_data: dict):
+        super().__init__(bot, guild_id, embed_data)
+        self.title.default = embed_data.get('title', '')
+
+    def update_embed_data(self):
+        self.embed_data['title'] = self.title.value
+
+class DescriptionModal(BaseModal):
+    description = discord.ui.TextInput(
+        label="Embed Description",
+        style=discord.TextStyle.paragraph,
+        required=False
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, embed_data: dict):
+        super().__init__(bot, guild_id, embed_data)
+        self.description.default = embed_data.get('description', '')
+
+    def update_embed_data(self):
+        self.embed_data['description'] = self.description.value
+
+class ColorModal(BaseModal):
+    color = discord.ui.TextInput(
+        label="Embed Color (hex code)",
+        style=discord.TextStyle.short,
+        required=False
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, embed_data: dict):
+        super().__init__(bot, guild_id, embed_data)
+        self.color.default = embed_data.get('color', '')
+
+    def update_embed_data(self):
+        self.embed_data['color'] = self.color.value
+
+class ImageModal(BaseModal):
+    image_url = discord.ui.TextInput(
+        label="Image URL",
+        style=discord.TextStyle.short,
+        required=False
+    )
+
+    def __init__(self, bot: commands.Bot, guild_id: int, embed_data: dict):
+        super().__init__(bot, guild_id, embed_data)
+        self.image_url.default = embed_data.get('image_url', '')
+
+    def update_embed_data(self):
+        self.embed_data['image_url'] = self.image_url.value
+
+class EmbedSetupSelect(WelcomerSetupSelect):
+    def __init__(self, bot: commands.Bot, user_id: int, original_message: discord.Message, embed_data: dict):
+        super().__init__(bot, user_id, original_message, embed_data)
         self.embed_data = embed_data
-        self.original_message = original_message
-        
-        if self.embed_data:
-            self.titletxt.default = self.embed_data.get('title', '')
-            self.description.default = self.embed_data.get('description', '')
-            self.color.default = self.embed_data.get('color', '')
-            self.image_url.default = self.embed_data.get('image_url', '')
+        self.options = [
+            discord.SelectOption(label="Embed Title", description="Set the title of the embed"),
+            discord.SelectOption(label="Embed Description", description="Set the description of the embed"),
+            discord.SelectOption(label="Embed Color", description="Set the color of the embed"),
+            discord.SelectOption(label="Embed Image", description="Set the image of the embed"),
+            discord.SelectOption(label="Finish", description="Finish setting up the embed")
+        ]
 
-    async def on_submit(self, interaction: discord.Interaction):
-        embed = discord.Embed()
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You are not authorized to use this menu.", ephemeral=True)
+            return
 
-        if self.titletxt.value:
-            embed.title = self.titletxt.value
-        if self.description.value:
-            embed.description = self.description.value
-        if self.color.value:
-            try:
-                embed.color = discord.Color.from_str(self.color.value)
-            except ValueError:
-                pass
-        if self.image_url.value:
-            embed.set_image(url=self.image_url.value)
-
-        if self.embed_data:  # If editing an embed
-            channel = await interaction.guild.fetch_channel(self.embed_data['channel_id'])
-            message = await channel.fetch_message(self.embed_data['msg_id'])
-            await message.edit(embed=embed)
-
-            db[str(interaction.guild.id)]['embeds'].update_one(
-                {"name": self.embed_name},
-                {"$set": {
-                    "title": self.titletxt.value,
-                    "description": self.description.value,
-                    "color": self.color.value,
-                    "image_url": self.image_url.value
-                }}
-            )
-            await interaction.response.send_message(f"Embed '{self.embed_name}' updated successfully.", ephemeral=True)
-            if self.original_message:
-                await self.original_message.delete()
+        selected_option = self.values[0]
+        if selected_option == "Finish":
+            await self.finish_setup(interaction)
         else:
-            interaction.client.reaction_role_embed = embed
-            interaction.client.reaction_role_embed_name = self.embed_name
+            modal_class = {
+                "Embed Title": TitleModal,
+                "Embed Description": DescriptionModal,
+                "Embed Color": ColorModal,
+                "Embed Image": ImageModal
+            }[selected_option]
             
-            view = discord.ui.View()
-            view.add_item(ChannelSelect(interaction.client, interaction.guild.id, interaction.user.id, self.original_message))
+            modal = modal_class(self.bot, interaction.guild.id, self.embed_data)
+            await interaction.response.send_modal(modal)
+            await modal.wait()
             
-            embed = discord.Embed(description="Select a channel to send the embed:", color=discord.Color.dark_gray())
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await self.update_preview_embed(interaction)
 
-class ChannelSelect(discord.ui.ChannelSelect):
-    def __init__(self, bot, guild_id, user_id, original_message):
-        super().__init__(placeholder="Select a channel", channel_types=[discord.ChannelType.text])
-        self.bot = bot
-        self.guild_id = guild_id
-        self.user_id = user_id
-        self.original_message = original_message
-
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("You are not authorized to use this button.", ephemeral=True)
-            return
-
-        channel = self.values[0].id
-        channel = await interaction.client.fetch_channel(channel)
-
-        msg: discord.Message = await channel.send(embed=self.bot.reaction_role_embed)
-
-        db[str(self.guild_id)]['embeds'].insert_one({
-            "name": self.bot.reaction_role_embed_name,
-            "msg_id": msg.id,
-            "channel_id": msg.channel.id,
-            "user": self.user_id,
-            "title": self.bot.reaction_role_embed.title,
-            "description": self.bot.reaction_role_embed.description,
-            "color": str(self.bot.reaction_role_embed.color),
-            "image_url": self.bot.reaction_role_embed.image.url if self.bot.reaction_role_embed.image else ""
-        })
-
-        await interaction.response.send_message(content=f"Done! Embed '{self.bot.reaction_role_embed_name}' sent to the selected channel and stored in the database.", ephemeral=True)
+    async def finish_setup(self, interaction: discord.Interaction):
+        db[str(interaction.guild.id)]["embeds"].update_one(
+            {"name": self.embed_data['name']}, 
+            {"$set": self.embed_data}, 
+            upsert=True
+        )
         
-        # Delete the original message containing the button
-        if self.original_message:
-            await self.original_message.delete()
+        await interaction.response.send_message(f"Embed '{self.embed_data['name']}' has been created/updated successfully.", ephemeral=True)
+        await self.original_message.delete()
 
-class EmbedCreateButton(discord.ui.Button):
-    def __init__(self, bot, name: str, user_id: int, original_message):
-        super().__init__(label="Click to create embed", style=discord.ButtonStyle.primary)
-        self.bot = bot
-        self.name = name
-        self.user_id = user_id
-        self.original_message = original_message
+    async def update_preview_embed(self, interaction: discord.Interaction):
+        embed = discord.Embed()
+        
+        if self.embed_data.get('title'):
+            embed.title = parse_welcomer_content(self.embed_data['title'], interaction.user)
+        
+        if self.embed_data.get('description'):
+            embed.description = parse_welcomer_content(self.embed_data['description'], interaction.user)
+        
+        if self.embed_data.get('color'):
+            embed.color = discord.Color.from_str(self.embed_data['color'])
+        
+        if self.embed_data.get('image_url'):
+            image_url = parse_welcomer_content(self.embed_data['image_url'], interaction.user)
+            if image_url and self.is_valid_url(image_url):
+                embed.set_image(url=image_url)
 
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("You are not authorized to use this button.", ephemeral=True)
-            return
-        modal = EmbedMakerModal(self.bot, self.name, original_message=self.original_message)
-        await interaction.response.send_modal(modal)
+        await self.original_message.edit(content="Current embed preview:", embed=embed)
 
 class Embed(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -146,73 +156,50 @@ class Embed(commands.Cog):
                 title="Embed Commands",
                 description="""
 - `?embed create <name>`
-  - Creates an embed the unique name
+  - Creates an embed with the unique name
 - `?embed list`
   - Lists all the embeds in this guild
 - `?embed delete <name>`
   - Deletes an embed by name
 - `?embed edit <name>`
   - Edits an existing embed
+- `?embed send <name> <channel>`
+  - Sends an embed to a specified channel
                 """,
                 color=discord.Color.blue()
             )
             await ctx.reply(embed=help_embed)
+
     @embedgroup.command(
         name="create",
         description="Create a new embed."
     )
     @app_commands.describe(name="Give a name for your embed. It should be unique and one worded.")
     async def embed_create(self, ctx: commands.Context, name: str):
-        """
-        Create a new embed with a unique name.
-
-        **Usage:**
-        ?embed create <name>
-        /embed create <name>
-
-        **Parameters:**
-        name (str): The name for your embed. It should be unique and one worded.
-
-        **Example:**
-        ?embed create welcome_message
-        /embed create server_rules
-        """
         if not ctx.author.guild_permissions.manage_guild:
-            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
         if ' ' in name:
             await ctx.reply("Embed name cannot contain spaces. Please use a single word or connect words with underscores.", ephemeral=True)
             return
         
+        embed_data = {"name": name}
         view = discord.ui.View()
-        message = await ctx.reply("Click the button below to start creating your embed.", view=view)
-        view.add_item(EmbedCreateButton(self.bot, name, ctx.author.id, message))
-        await message.edit(view=view)
+        select = EmbedSetupSelect(self.bot, ctx.author.id, None, embed_data)
+        view.add_item(select)
+        
+        message = await ctx.reply("Please select the fields you want to edit for your embed:", view=view)
+        select.original_message = message
 
     @embedgroup.command(
         name="list",
         description="List all the embeds in this guild."
     )
     async def embed_list(self, ctx: commands.Context):
-        """
-        List all the embeds in this guild.
-
-        **Usage:**
-        ?embed list
-        /embed list
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?embed list
-        /embed list
-        """
         if not ctx.author.guild_permissions.manage_guild:
-            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
-
 
         embeds = db[str(ctx.guild.id)]['embeds'].find() 
         embed_list = [f"`{embed['name']}`" for embed in embeds]
@@ -233,37 +220,16 @@ class Embed(commands.Cog):
     )
     @app_commands.describe(name="Name of the embed that you want to delete")
     async def embed_delete(self, ctx: commands.Context, name: str):
-        """
-        Delete an embed by its name.
-
-        **Usage:**
-        ?embed delete <name>
-        /embed delete <name>
-
-        **Parameters:**
-        name (str): The name of the embed that you want to delete.
-
-        **Example:**
-        ?embed delete welcome_message
-        /embed delete server_rules
-        """
         if not ctx.author.guild_permissions.manage_guild:
-            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
-        
-        if not embed_data:
+        result = db[str(ctx.guild.id)]['embeds'].delete_one({"name": name})
+
+        if result.deleted_count > 0:
+            await ctx.reply(f"Embed `{name}` deleted successfully from the database.")
+        else:
             await ctx.reply(f"No embed found with name `{name}`.")
-            return
-    
-        channel = await ctx.guild.fetch_channel(embed_data["channel_id"])
-        message = await channel.fetch_message(embed_data["msg_id"])
-        await message.delete()
-
-        db[str(ctx.guild.id)]['embeds'].delete_one({"name": name})
-
-        await ctx.reply(f"Embed `{name}` deleted successfully.")
     
     @embedgroup.command(
         name="edit",
@@ -272,22 +238,8 @@ class Embed(commands.Cog):
     @app_commands.autocomplete(name=autocomplete())
     @app_commands.describe(name="Name of the embed that you want to edit")
     async def embed_edit(self, ctx: commands.Context, name: str):
-        """
-        Edit an existing embed by its name.
-
-        **Usage:**
-        ?embed edit <name>
-        /embed edit <name>
-
-        **Parameters:**
-        name (str): The name of the embed that you want to edit.
-
-        **Example:**
-        ?embed edit welcome_message
-        /embed edit server_rules
-        """
         if not ctx.author.guild_permissions.manage_guild:
-            await ctx.reply("You do not have permission to use this command.", ephemeral=True, delete_after=5)
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
         embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
@@ -296,26 +248,63 @@ class Embed(commands.Cog):
             await ctx.reply(f"No embed found with name `{name}`.")
             return
 
-        class EditEmbedButton(discord.ui.Button):
-            def __init__(self, bot, embed_data, name, user_id, original_message):
-                super().__init__(label="Edit Embed", style=discord.ButtonStyle.primary)
-                self.bot = bot
-                self.embed_data = embed_data
-                self.name = name
-                self.user_id = user_id
-                self.original_message = original_message
-                
-            async def callback(self, interaction: discord.Interaction):
-                if interaction.user.id != self.user_id:
-                    await interaction.response.send_message("You are not authorized to use this button.", ephemeral=True)
-                    return
-                modal = EmbedMakerModal(self.bot, self.name, embed_data=self.embed_data, original_message=self.original_message)
-                await interaction.response.send_modal(modal)
-
         view = discord.ui.View()
-        message = await ctx.reply(f"Click the button to edit the embed '{name}':")
-        view.add_item(EditEmbedButton(self.bot, embed_data, name, ctx.author.id, message))
-        await message.edit(view=view)
+        select = EmbedSetupSelect(self.bot, ctx.author.id, None, embed_data)
+        view.add_item(select)
+        
+        message = await ctx.reply(f"Please select the fields you want to edit for the embed '{name}':", view=view)
+        select.original_message = message
+
+    @embedgroup.command(
+        name="send",
+        description="Send an embed to a specified channel."
+    )
+    @app_commands.autocomplete(name=autocomplete())
+    @app_commands.describe(
+        name="Name of the embed that you want to send",
+        channel="The channel where you want to send the embed"
+    )
+    async def embed_send(self, ctx: commands.Context, name: str, channel: discord.TextChannel):
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.reply("You do not have permission to use this command.", ephemeral=True)
+            return
+
+        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
+
+        if not embed_data:
+            await ctx.reply(f"No embed found with name `{name}`.")
+            return
+
+        embed = discord.Embed()
+        
+        if embed_data.get('title'):
+            embed.title = parse_welcomer_content(embed_data['title'], ctx.author)
+        
+        if embed_data.get('description'):
+            embed.description = parse_welcomer_content(embed_data['description'], ctx.author)
+        
+        if embed_data.get('color'):
+            embed.color = discord.Color.from_str(embed_data['color'])
+        
+        if embed_data.get('image_url'):
+            image_url = parse_welcomer_content(embed_data['image_url'], ctx.author)
+            if image_url and self.is_valid_url(image_url):
+                embed.set_image(url=image_url)
+
+        try:
+            await channel.send(embed=embed)
+            await ctx.reply(f"Embed '{name}' sent successfully to {channel.mention}.")
+        except discord.errors.Forbidden:
+            await ctx.reply(f"I don't have permission to send messages in {channel.mention}.")
+        except Exception as e:
+            await ctx.reply(f"An error occurred while sending the embed: {str(e)}")
+
+    def is_valid_url(self, url: str) -> bool:
+        try:
+            result = urlparse(url)
+            return all([result.scheme, result.netloc])
+        except ValueError:
+            return False
 
 async def setup(bot):
     await bot.add_cog(Embed(bot))

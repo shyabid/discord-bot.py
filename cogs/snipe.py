@@ -43,12 +43,12 @@ class Snipe(commands.Cog):
         """Shows info about the last edited message(s)"""
         count = min(count, 8)
         if not self.edited_messages.get(ctx.guild.id):
-            await ctx.send("No edited messages found.")
+            await ctx.reply("No edited messages found.")
             return
 
         edited_messages = self.edited_messages[ctx.guild.id][-count:]
         embeds = []
-        for before, after in reversed(edited_messages):
+        for before, after in edited_messages:
             embed = discord.Embed(color=discord.Color.dark_grey())
             embed.description = f"✏️ Message edited by {before.author.mention} in {before.channel.mention} at <t:{int(after.edited_at.timestamp())}:T>\n\n"
             embed.description += f"Before: ||{before.content[:1024] or 'None'}||\n"
@@ -60,10 +60,16 @@ class Snipe(commands.Cog):
             embeds.append(embed)
 
         if len(embeds) == 1:
-            await ctx.send(embed=embeds[0])
+            await ctx.reply(embed=embeds[0])
         else:
-            view = PaginationView(embeds)
-            view.message = await ctx.send(embed=embeds[0], view=view)
+            view = PaginationView(embeds[::-1], ctx.author)  
+            view.message = await ctx.reply(embed=embeds[-1], view=view)
+
+    @commands.command(name="snipe_edited", aliases=["editsnipe"])
+    @commands.has_permissions(manage_messages=True)
+    async def snipe_edited_command(self, ctx, count: int = 1):
+        """Shows info about the last edited message(s)"""
+        await self.snipe_edited(ctx, count)
 
     @snipe.command(name="suiiki")
     @commands.has_permissions(manage_messages=True)
@@ -71,26 +77,37 @@ class Snipe(commands.Cog):
         """Shows the last 3 deleted messages"""
         await self._snipe_deleted(ctx, 3)
 
+
     @snipe.command(name="user")
     @commands.has_permissions(manage_messages=True)
-    @app_commands.describe(user="The user to snipe messages from")
-    async def snipe_user(self, ctx, user: discord.Member):
-        """Shows the last deleted message of a specific user"""
+    @app_commands.describe(user="The user to snipe messages from", count="Number of messages to snipe (default: 1, max: 8)")
+    async def snipe_user(self, ctx, user: discord.Member, count: int = 1):
+        """Shows the last deleted message(s) of a specific user"""
         if not self.deleted_messages.get(ctx.guild.id):
-            await ctx.send("No deleted messages found.")
+            await ctx.reply("No deleted messages found.")
             return
 
+        count = min(count, 8)  # Limit to 8 messages max
         user_messages = [msg for msg, _ in self.deleted_messages[ctx.guild.id] if msg.author == user]
         if not user_messages:
-            await ctx.send(f"No deleted messages found for {user.mention}.")
+            await ctx.reply(f"No deleted messages found for {user.mention}.")
             return
 
-        message = user_messages[-1]
-        await self._send_snipe_embed(ctx, message)
+        messages_to_show = user_messages[-count:]
+        if len(messages_to_show) == 1:
+            await self._send_snipe_embed(ctx, messages_to_show[0])
+        else:
+            embeds = []
+            for message in messages_to_show:
+                embed = await self._create_snipe_embed(message, discord.utils.utcnow())
+                embeds.append(embed)
+            
+            view = PaginationView(embeds[::-1], ctx.author)
+            view.message = await ctx.reply(embed=embeds[-1], view=view)
 
     async def _snipe_deleted(self, ctx, count: int):
         if not self.deleted_messages.get(ctx.guild.id):
-            await ctx.send("No deleted messages found.")
+            await ctx.reply("No deleted messages found.")
             return
 
         messages = self.deleted_messages[ctx.guild.id][-count:]
@@ -100,10 +117,10 @@ class Snipe(commands.Cog):
             embeds.append(embed)
 
         if len(embeds) == 1:
-            await ctx.send(embed=embeds[0])
+            await ctx.reply(embed=embeds[0])
         else:
-            view = PaginationView(embeds)
-            view.message = await ctx.send(embed=embeds[0], view=view)
+            view = PaginationView(embeds[::-1], ctx.author)  
+            view.message = await ctx.reply(embed=embeds[-1], view=view)
 
     async def _create_snipe_embed(self, message, deleted_at):
         embed = discord.Embed(color=discord.Color.dark_grey())
@@ -125,7 +142,7 @@ class Snipe(commands.Cog):
 
     async def _send_snipe_embed(self, ctx, message):
         embed = await self._create_snipe_embed(message, discord.utils.utcnow())
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Snipe(bot))

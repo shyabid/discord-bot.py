@@ -4,6 +4,7 @@ import html
 import asyncio
 import datetime
 import time
+import io
 import aiohttp
 import re
 import urllib
@@ -149,7 +150,7 @@ class Misc(commands.Cog):
                         embed.set_footer(text=f"Definition ID: {entry['defid']}")
                         embeds.append(embed)
 
-                    paginator = PaginationView(embeds)
+                    paginator = PaginationView(embeds, ctx.author)
                     await ctx.reply(embed=embeds[0], view=paginator)
                 else:
                     await ctx.reply("Failed to fetch data from Urban Dictionary. Please try again.")
@@ -298,6 +299,160 @@ class Misc(commands.Cog):
         ?ttm Hello World
         """
         await self.ttm(ctx, text=text)
+
+    @misc.command(name="define", description="Get the definition of a word")
+    @app_commands.describe(word="The word to define")
+    async def define(self, ctx: commands.Context, word: str):
+        """
+        Get the definition of a word using the Dictionary API.
+
+        **Usage:**
+        ?misc define <word>
+        /misc define <word>
+
+        **Parameters:**
+        word (str): The word to define.
+
+        **Example:**
+        ?misc define tough
+        /misc define tough
+        """
+        url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data and isinstance(data, list) and len(data) > 0:
+                        word_data = data[0]
+                        embed = discord.Embed(title=f"Definition of '{word_data['word']}'", color=discord.Color.blue())
+                        
+                        if 'phonetic' in word_data:
+                            embed.add_field(name="Phonetic", value=word_data['phonetic'], inline=False)
+                        
+                        for meaning in word_data.get('meanings', []):
+                            part_of_speech = meaning.get('partOfSpeech', 'Unknown')
+                            definitions = meaning.get('definitions', [])
+                            if definitions:
+                                definition_text = definitions[0].get('definition', 'No definition available')
+                                example = definitions[0].get('example', '')
+                                field_value = f"{definition_text}\n\n*Example:* {example}" if example else definition_text
+                                embed.add_field(name=part_of_speech.capitalize(), value=field_value, inline=False)
+                        
+                        if isinstance(ctx, discord.Interaction):
+                            await ctx.response.send_message(embed=embed)
+                        else:
+                            await ctx.reply(embed=embed)
+                    else:
+                        error_message = f"No definition found for '{word}'."
+                        if isinstance(ctx, discord.Interaction):
+                            await ctx.response.send_message(error_message, ephemeral=True)
+                        else:
+                            await ctx.reply(error_message)
+                else:
+                    error_message = f"Failed to fetch definition for '{word}'. Please try again."
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(error_message, ephemeral=True)
+                    else:
+                        await ctx.reply(error_message)
+
+    @commands.command(name="define", description="Get the definition of a word")
+    async def define_command(self, ctx: commands.Context, word: str):
+        """
+        Get the definition of a word using the Dictionary API.
+
+        **Usage:**
+        ?define <word>
+
+        **Parameters:**
+        word (str): The word to define.
+
+        **Example:**
+        ?define tough
+        """
+        await self.define(ctx, word=word)
+    @misc.command(name="lyrics", description="Get lyrics for a song")
+    async def lyrics(self, ctx: commands.Context, *, query: str):
+        """
+        Get lyrics for a song using an API.
+
+        **Usage:**
+        ?misc lyrics <song name>
+        /misc lyrics <song name>
+
+        **Parameters:**
+        query (str): The name of the song to search for lyrics.
+
+        **Example:**
+        ?misc lyrics Shape of You
+        /misc lyrics Shape of You
+        """
+        api_url = f"https://some-lyrics-api.com/v1/lyrics?q={query}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                    else:
+                        await ctx.send(f"Error fetching lyrics. Status code: {response.status}")
+                        return
+        except aiohttp.ClientError as e:
+            await ctx.send(f"Error connecting to the lyrics API: {str(e)}")
+            return
+        except Exception as e:
+            await ctx.send(f"An unexpected error occurred: {str(e)}")
+            return
+
+        if not data or "error" in data:
+            await ctx.send(f"No lyrics found for '{query}'. Please try a different search.")
+            return
+
+        try:
+            title = data.get("title", "Unknown Title")
+            author = data.get("author", "Unknown Author")
+            lyrics = data.get("lyrics", "Lyrics not available")
+            thumbnail_url = data.get("thumbnail", {}).get("genius", "")
+
+            if not lyrics:
+                await ctx.send(f"No lyrics found for '{query}'. The song might not have lyrics.")
+                return
+
+            embed = discord.Embed(
+                title=f"{title} - {author}",
+                description=lyrics[:2048],  # Discord has a 2048 character limit for embed description
+                color=discord.Color.blue()
+            )
+
+            if thumbnail_url:
+                embed.set_thumbnail(url=thumbnail_url)
+
+            if len(lyrics) > 2048:
+                embed.set_footer(text="Lyrics were truncated due to length.")
+
+            if isinstance(ctx, discord.Interaction):
+                await ctx.response.send_message(embed=embed)
+            else:
+                await ctx.reply(embed=embed)
+
+        except Exception as e:
+            await ctx.send(f"An error occurred while processing the lyrics: {str(e)}")
+
+    @commands.command(name="lyrics", description="Get lyrics for a song")
+    async def lyrics_command(self, ctx: commands.Context, *, query: str):
+        """
+        Get lyrics for a song using an API.
+
+        **Usage:**
+        ?lyrics <song name>
+
+        **Parameters:**
+        query (str): The name of the song to search for lyrics.
+
+        **Example:**
+        ?lyrics Shape of You
+        """
+        await self.lyrics(ctx, query=query)
 
 
 

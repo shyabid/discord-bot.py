@@ -1,5 +1,7 @@
 from discord.ext import commands
 import discord
+from Quote2Image import Convert, GenerateColors, ImgObject
+import io
 import aiohttp
 from discord import app_commands
 from typing import Optional, Dict, Any
@@ -60,16 +62,16 @@ class Fun(commands.Cog):
         /fun fact
         """
         try:
-            url: str = "https://api.popcat.xyz/fact"
+            url: str = "https://uselessfacts.jsph.pl/api/v2/facts/random"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
                     if response.status == 200:
                         data: Dict[str, Any] = await response.json()
                         embed: discord.Embed = discord.Embed(
-                            description=data["fact"],
+                            description=data["text"],
                             color=discord.Color.dark_grey()
                         )
-                        embed.set_author(name="Fun Fact")
+                        embed.title = "Fun Fact"
                         await ctx.reply(embed=embed)
                     else:
                         await ctx.reply("Failed to fetch a fact. Please try again.")
@@ -608,7 +610,135 @@ class Fun(commands.Cog):
         ?lulify Hello World
         """
         await self.lulify(ctx, text=text)
+    @fun.command(name="kanye", description="Get a random Kanye West quote")
+    async def kanye(self, ctx: commands.Context):
+        """
+        Get a random Kanye West quote as an image.
 
+        **Usage:**
+        ?kanye
+        /kanye
+
+        **Example:**
+        ?kanye
+        /kanye
+        """
+        url = "https://api.kanye.rest/"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    quote = data.get("quote", "Error: No quote returned")
+                    
+                    bg = ImgObject(image="assets/kanye.png", brightness=40, blur=0)
+
+                    img = Convert(
+                        quote=quote,
+                        author="Kanye West",
+                        fg="#ffffff",
+                        bg=bg,
+                        font_size=25,
+                        font_type="assets/arial.ttf",
+                        width=600,
+                        height=450,
+                        watermark_text=" "
+                    )
+
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format='PNG')
+                    img_byte_arr.seek(0)
+
+                    embed = discord.Embed(color=discord.Color.dark_grey())
+                    embed.set_image(url="attachment://kanye_quote.png")
+                    
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
+                    else:
+                        await ctx.reply(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
+                else:   
+                    error_message = "Failed to fetch a Kanye West quote. Please try again."
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.response.send_message(error_message, ephemeral=True)
+                    else:
+                        await ctx.reply(error_message)
+
+    @commands.command(name="kanye", description="Get a random Kanye West quote")
+    async def kanye_command(self, ctx: commands.Context):
+        """
+        Get a random Kanye West quote as an image.
+
+        **Usage:**
+        ?kanye
+
+        **Example:**
+        ?kanye
+        """
+        await self.kanye(ctx)
+
+
+    @fun.command(
+        name="meme",
+        description="Get a random meme"
+    )
+    async def meme(
+        self,
+        ctx: commands.Context
+    ) -> None:
+        """
+        Get a random meme from the internet.
+
+        **Usage:**
+        ?fun meme
+        /fun meme
+
+        **Parameters:**
+        None
+
+        **Example:**
+        ?fun meme
+        /fun meme
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get('https://meme-api.com/gimme') as response:
+                    if response.status == 200:
+                        meme_data = await response.json()
+                        meme_title = meme_data['title']
+                        meme_url = meme_data['url']
+                        embed = discord.Embed(description=meme_title, color=discord.Color.from_rgb(195, 238, 250))
+                        embed.set_image(url=meme_url)
+                        await ctx.reply(embed=embed)
+                    else:
+                        await ctx.reply("Failed to fetch a meme. Please try again.")
+        except Exception as e:
+            await ctx.reply(f"An error occurred: {e}")
+
+    @commands.command(
+        name="meme",
+        description="Get a random meme"
+    )
+    async def meme_command(
+        self,
+        ctx: commands.Context
+    ) -> None:
+        """
+        Get a random meme from the internet.
+
+        **Usage:**
+        ?meme
+
+        **Parameters:**
+        None
+
+        **Example:**
+        ?meme
+        """
+        await self.meme(ctx)
+
+
+    
+        
 async def setup(
         bot: commands.Bot
 ) -> None:

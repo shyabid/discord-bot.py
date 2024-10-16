@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import aiohttp
 import random
+from typing import Literal
 from db import db
 
 
@@ -75,13 +76,12 @@ class Quiz(commands.Cog):
         if ctx.invoked_subcommand is None:
             await self.quiz_random(ctx)
 
-    @quiz.command(name="random", description="Take a random quiz!")
-    async def quiz_random(self, ctx: commands.Context, category: str = None):
+    @quiz.command(name="start", description="Take a random quiz!")
+    async def quiz_random(self, ctx: commands.Context, category: Literal["history", "gk", "music", "anime", "science", "games"] = None):
         question_data = await self.fetch_questions(category)
         if question_data is None:
             await ctx.reply("Failed to fetch the quiz.")
             return
-        
         question_text, correct_answer, options, category_name = question_data
 
         select = discord.ui.Select(
@@ -90,28 +90,39 @@ class Quiz(commands.Cog):
         )
 
         async def select_callback(interaction: discord.Interaction):
+            if interaction.user.id != ctx.author.id:
+                msg = await interaction.response.send_message("You can't answer this quiz!", ephemeral=True)
+                return
             selected_answer = select.values[0]
             correct = selected_answer == correct_answer
             await self.update_score(interaction.user.id, correct, category_name)
 
-            result_message = f"**Result:** {'Correct!' if correct else f'Wrong! The correct answer was: {correct_answer}'}"
-            result_embed = discord.Embed(title=f"Quiz - {category_name.capitalize()}", description=f"{question_text}\n\n{result_message}", color=discord.Color.green() if correct else discord.Color.red())
+            result_message = "Correct!" if correct else f"Incorrect. The correct answer was: {correct_answer}"
+            result_embed = discord.Embed(description=result_message, color=discord.Color.green() if correct else discord.Color.red())
+            
+            # Disable the select to prevent further interaction
+            select.disabled = True
+            view = discord.ui.View()
+            view.add_item(select)
+
             await interaction.response.edit_message(embed=result_embed, view=None)
+
 
         select.callback = select_callback
 
         view = discord.ui.View(timeout=15)
         view.add_item(select)
 
-        end_time = datetime.datetime.now() + datetime.timedelta(seconds=15)
-        embed = discord.Embed(title=f"Quiz - {category_name.capitalize()}", description=f"{question_text}\n\nQuiz ends {discord.utils.format_dt(end_time, 'R')}", color=discord.Color.dark_grey())
+        end_time = discord.utils.utcnow() + datetime.timedelta(seconds=15)
+        embed = discord.Embed(description=f"{question_text}\n\nQuiz ends {discord.utils.format_dt(end_time, 'R')}", color=discord.Color.dark_grey())
         message = await ctx.reply(embed=embed, view=view)
 
         await asyncio.sleep(15)
 
         if not select.disabled:
-            times_up_embed = discord.Embed(title=f"Quiz - {category_name.capitalize()}", description=f"{question_text}\n\nTimes Up! The correct answer was: {correct_answer}", color=discord.Color.dark_grey())
+            times_up_embed = discord.Embed(description=f"Times Up! The correct answer was: {correct_answer}", color=discord.Color.dark_grey())
             await message.edit(embed=times_up_embed, view=None)
+
 
     @quiz.command(name="score", description="Show your quiz score")
     async def quiz_score(self, ctx: commands.Context):
