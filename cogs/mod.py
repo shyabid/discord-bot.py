@@ -7,13 +7,11 @@ import time
 from utils import create_autocomplete_from_list as autocomplete
 from discord.ext import commands
 from utils import parse_time_string as strtoint
-from db import db
 import datetime
 
 class Mod(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.db = db
         
     @commands.hybrid_group(name="moderation", description="Moderation commands")
     async def moderation(self, ctx: commands.Context):
@@ -24,12 +22,12 @@ class Mod(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def setlog(self, ctx: commands.Context, channel: discord.TextChannel):
         guild_id = str(ctx.guild.id)
-        config_collection = self.db[guild_id]["config"]
+        config_collection = self.bot.db[guild_id]["config"]
         config_collection.update_one({}, {"$set": {"modlog": channel.id}}, upsert=True)
         await ctx.send(f"Moderation log channel set to {channel.mention}")
 
     async def get_log_channel(self, guild_id: int) -> Optional[discord.TextChannel]:
-        config = self.db[str(guild_id)]["config"].find_one({})
+        config = self.bot.db[str(guild_id)]["config"].find_one({})
         if config and "modlog" in config:
             return self.bot.get_channel(config["modlog"])
         return None

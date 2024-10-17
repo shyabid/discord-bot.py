@@ -5,13 +5,11 @@ from utils import format_seconds
 from datetime import datetime, timezone
 from typing import Optional
 import calendar
-from db import db
 import time
 
 class Afk(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.client = db
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -20,11 +18,11 @@ class Afk(commands.Cog):
         if message.content.startswith("?afk"): 
             return
         
-        afk_data = self.client[str(message.guild.id)]["afks"].find_one({"userid": message.author.id})
+        afk_data = self.bot.db[str(message.guild.id)]["afks"].find_one({"userid": message.author.id})
         
         if afk_data:
             try: 
-                self.client[str(message.guild.id)]["afks"].delete_one({"userid": message.author.id})
+                self.bot.db[str(message.guild.id)]["afks"].delete_one({"userid": message.author.id})
                 time_then = round(afk_data['since'])
                 time_now = round(time.time())
                 timediff = time_now - time_then
@@ -35,7 +33,7 @@ class Afk(commands.Cog):
                 print(f"An error occurred while removing AFK: {str(e)}")
 
         for mention in message.mentions:
-            afk_user_data = self.client[str(message.guild.id)]["afks"].find_one({"userid": mention.id})
+            afk_user_data = self.bot.db[str(message.guild.id)]["afks"].find_one({"userid": mention.id})
             
             if afk_user_data:
                 try:
@@ -74,12 +72,12 @@ class Afk(commands.Cog):
             return await ctx.reply("This command can only be used in a server.")
 
         try:
-            existing_afk = self.client[str(ctx.guild.id)]["afks"].find_one({"userid": ctx.author.id})
+            existing_afk = self.bot.db[str(ctx.guild.id)]["afks"].find_one({"userid": ctx.author.id})
             if existing_afk:
                 await ctx.reply("You are already set as AFK.")
                 return
             
-            self.client[str(ctx.guild.id)]["afks"].insert_one({
+            self.bot.db[str(ctx.guild.id)]["afks"].insert_one({
                 "userid": ctx.author.id,
                 "reason": reason,
                 "since": time.time()

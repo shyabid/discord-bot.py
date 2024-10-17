@@ -20,7 +20,7 @@ class InteractionsCog(commands.Cog):
         else:
             prefix = self.bot.command_prefix
 
-        command = content[0].lstrip(prefix)
+        command = content[0].lstrip(prefix) if isinstance(prefix, str) else content[0]
         if command in interaction_data and (len(content) < 2 or not message.mentions):
             await message.reply("Mention a user to interact with")
             return

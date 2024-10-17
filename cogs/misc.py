@@ -16,7 +16,6 @@ import requests
 import json
 from typing import Literal, Union
 import os
-from db import db
 
 
 class Misc(commands.Cog):
@@ -298,7 +297,7 @@ class Misc(commands.Cog):
         **Example:**
         ?ttm Hello World
         """
-        await self.ttm(ctx, text=text)
+        await self.ttm.invoke(ctx, text=text)
 
     @misc.command(name="define", description="Get the definition of a word")
     @app_commands.describe(word="The word to define")

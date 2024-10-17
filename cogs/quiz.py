@@ -6,13 +6,11 @@ import datetime
 import aiohttp
 import random
 from typing import Literal
-from db import db
 
 
 class Quiz(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.db = db
         self.question_cache = {}
         self.last_fetch_time = None
 
@@ -51,7 +49,7 @@ class Quiz(commands.Cog):
 
     async def update_score(self, user_id, correct, category):
         user_id_str = str(user_id)
-        quiz_data = self.db["userdata"]["quiz"].find_one({"userid": user_id_str}) or {
+        quiz_data = self.bot.db["userdata"]["quiz"].find_one({"userid": user_id_str}) or {
             "userid": user_id_str,
             "total_quizzes": 0,
             "correct_answers": 0,
@@ -69,7 +67,7 @@ class Quiz(commands.Cog):
         if correct:
             quiz_data["categories"][category]["correct"] += 1
 
-        self.db["userdata"]["quiz"].update_one({"userid": user_id_str}, {"$set": quiz_data}, upsert=True)
+        self.bot.db["userdata"]["quiz"].update_one({"userid": user_id_str}, {"$set": quiz_data}, upsert=True)
 
     @commands.hybrid_group(name="quiz", description="Take a quiz!")
     async def quiz(self, ctx: commands.Context):
@@ -127,7 +125,7 @@ class Quiz(commands.Cog):
     @quiz.command(name="score", description="Show your quiz score")
     async def quiz_score(self, ctx: commands.Context):
         user_id_str = str(ctx.author.id)
-        quiz_data = self.db["userdata"]["quiz"].find_one({"userid": user_id_str})
+        quiz_data = self.bot.db["userdata"]["quiz"].find_one({"userid": user_id_str})
 
         if not quiz_data:
             await ctx.reply("You haven't taken any quizzes yet!")
@@ -152,12 +150,13 @@ class Quiz(commands.Cog):
 
         await ctx.reply(embed=embed)
 
+        
     @quiz.command(name="leaderboard", description="Show the quiz leaderboard")
     async def quiz_leaderboard(self, ctx: commands.Context):
         leaderboard = []
-        for member in ctx.guild.members:
+        async for member in ctx.guild.fetch_members(limit=None):
             user_id_str = str(member.id)
-            quiz_data = self.db["userdata"]["quiz"].find_one({"userid": user_id_str})
+            quiz_data = self.bot.db["userdata"]["quiz"].find_one({"userid": user_id_str})
             if quiz_data and quiz_data.get("total_quizzes", 0) > 0:
                 total_quizzes = quiz_data["total_quizzes"]
                 correct_answers = quiz_data["correct_answers"]

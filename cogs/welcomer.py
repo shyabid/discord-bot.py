@@ -1,6 +1,5 @@
 from discord.ext import commands
 import discord
-from db import db
 import os
 import re
 from typing import (
@@ -265,7 +264,7 @@ class WelcomerSetupSelect(discord.ui.Select):
         interaction: discord.Interaction
     ) -> None:
         self.welcomer_data['enabled'] = True
-        db[str(interaction.guild.id)]["welcomer"].update_one(
+        self.bot.db[str(interaction.guild.id)]["welcomer"].update_one(
             {}, 
             {"$set": self.welcomer_data}, 
             upsert=True
@@ -438,7 +437,7 @@ class WelcomerChannelSelect(discord.ui.Select):
 
         selected_channel_id: int = int(self.values[0])
         self.welcomer_data['channel_id'] = selected_channel_id
-        db[str(interaction.guild.id)]["welcomer"].update_one(
+        self.bot.db[str(interaction.guild.id)]["welcomer"].update_one(
             {}, 
             {"$set": self.welcomer_data}, 
             upsert=True
@@ -478,7 +477,7 @@ class BaseModal(discord.ui.Modal):
         interaction: discord.Interaction
     ) -> None:
         self.update_welcomer_data()
-        db[str(self.guild_id)]["welcomer"].update_one(
+        self.bot.db[str(self.guild_id)]["welcomer"].update_one(
             {}, 
             {"$set": self.welcomer_data}, 
             upsert=True
@@ -794,7 +793,7 @@ class Welcomer(commands.Cog):
 
         **Note:** You must have the 'Manage Server' permission to use this command.
         """
-        welcomer_data = db[str(ctx.guild.id)]["welcomer"].find_one()
+        welcomer_data = self.bot.db[str(ctx.guild.id)]["welcomer"].find_one()
         if not welcomer_data:
             welcomer_data = {
                 'enabled': False,
@@ -814,7 +813,7 @@ class Welcomer(commands.Cog):
                 'thumbnail_url': '',
                 'image_url': ''
             }
-            db[str(ctx.guild.id)]["welcomer"].insert_one(
+            self.bot.db[str(ctx.guild.id)]["welcomer"].insert_one(
                 welcomer_data
             )
         
@@ -950,9 +949,9 @@ class Welcomer(commands.Cog):
             )
             return
 
-        welcomer_data = db[str(ctx.guild.id)]["welcomer"].find_one() or {}
+        welcomer_data = self.bot.db[str(ctx.guild.id)]["welcomer"].find_one() or {}
         welcomer_data['enabled'] = (state.lower() == 'on')
-        db[str(ctx.guild.id)]["welcomer"].update_one(
+        self.bot.db[str(ctx.guild.id)]["welcomer"].update_one(
             {},
             {"$set": welcomer_data},
             upsert=True
@@ -980,7 +979,7 @@ class Welcomer(commands.Cog):
 
         **Note:** You must have the 'Manage Server' permission to use this command.
         """
-        welcomer_data = db[str(ctx.guild.id)]["welcomer"].find_one()
+        welcomer_data = self.bot.db[str(ctx.guild.id)]["welcomer"].find_one()
         if not welcomer_data:
             welcomer_data = {
                 'enabled': False,
@@ -1000,7 +999,7 @@ class Welcomer(commands.Cog):
                 'thumbnail_url': '',
                 'image_url': ''
             }
-            db[str(ctx.guild.id)]["welcomer"].insert_one(
+            self.bot.db[str(ctx.guild.id)]["welcomer"].insert_one(
                 welcomer_data
             )
         
@@ -1101,7 +1100,7 @@ class Welcomer(commands.Cog):
         self,
         member: discord.Member
     ) -> None:
-        welcomer_data = db[str(member.guild.id)]["welcomer"].find_one()
+        welcomer_data = self.bot.db[str(member.guild.id)]["welcomer"].find_one()
         if not welcomer_data:
             welcomer_data = {
                 'enabled': False,
@@ -1121,7 +1120,7 @@ class Welcomer(commands.Cog):
                 'thumbnail_url': '',
                 'image_url': ''
             }
-            db[str(member.guild.id)]["welcomer"].insert_one(
+            self.bot.db[str(member.guild.id)]["welcomer"].insert_one(
                 welcomer_data
             )
 
@@ -1254,12 +1253,12 @@ class Welcomer(commands.Cog):
             ):
                 channel_id = int(self.values[0])
                 welcomer_data = (
-                    db[str(ctx.guild.id)]
+                    self.bot.db[str(ctx.guild.id)]
                     ["welcomer"]
                     .find_one() or {}
                 )
                 welcomer_data['channel_id'] = channel_id
-                db[str(ctx.guild.id)]["welcomer"].update_one(
+                self.bot.db[str(ctx.guild.id)]["welcomer"].update_one(
                     {},
                     {"$set": welcomer_data},
                     upsert=True

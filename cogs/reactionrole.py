@@ -1,7 +1,6 @@
 from discord.ext import commands
 import discord
 from discord import app_commands
-from db import db
 
 class Reactionrole(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -38,7 +37,7 @@ class Reactionrole(commands.Cog):
         role_name="Name, mention, or ID of the role"
     )
     async def add_reaction_role(self, ctx: commands.Context, embed_name: str, emoji: str, role_name: str):
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
+        embed_data = self.bot.db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
         if not embed_data:
             await ctx.reply(f"No embed found with name `{embed_name}`.")
             return
@@ -62,7 +61,7 @@ class Reactionrole(commands.Cog):
             "role_id": role.id
         }
 
-        db[str(ctx.guild.id)]["reactionrole"].update_one(
+        self.bot.db[str(ctx.guild.id)]["reactionrole"].update_one(
             {"embed_name": embed_name},
             {"$push": {"roles": reaction_role_data}},
             upsert=True
@@ -80,7 +79,7 @@ class Reactionrole(commands.Cog):
         role_name="Name, mention, or ID of the role to remove"
     )
     async def remove_reaction_role(self, ctx: commands.Context, embed_name: str, emoji: str, role_name: str):
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
+        embed_data = self.bot.db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
         if not embed_data:
             await ctx.reply(f"No embed found with name `{embed_name}`.")
             return
@@ -90,7 +89,7 @@ class Reactionrole(commands.Cog):
             await ctx.reply(f"Could not find a role matching `{role_name}`.")
             return
 
-        result = db[str(ctx.guild.id)]["reactionrole"].update_one(
+        result = self.bot.db[str(ctx.guild.id)]["reactionrole"].update_one(
             {"embed_name": embed_name},
             {"$pull": {"roles": {"emoji": emoji, "role_id": role.id}}}
         )
@@ -116,12 +115,12 @@ class Reactionrole(commands.Cog):
         app_commands.Choice(name="Multiple", value="multiple")
     ])
     async def set_reaction_role_type(self, ctx: commands.Context, embed_name: str, option: str):
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
+        embed_data = self.bot.db[str(ctx.guild.id)]['embeds'].find_one({"name": embed_name})
         if not embed_data:
             await ctx.reply(f"No embed found with name `{embed_name}`.")
             return
 
-        db[str(ctx.guild.id)]["reactionrole"].update_one(
+        self.bot.db[str(ctx.guild.id)]["reactionrole"].update_one(
             {"embed_name": embed_name},
             {"$set": {"type": option}},
             upsert=True
@@ -145,13 +144,13 @@ class Reactionrole(commands.Cog):
             return
 
         guild_id = str(payload.guild_id)
-        reaction_role_data = db[guild_id]["reactionrole"].find_one({"embed_name": {"$exists": True}})
+        reaction_role_data = self.bot.db[guild_id]["reactionrole"].find_one({"embed_name": {"$exists": True}})
 
         if not reaction_role_data:
             return
 
         for role_data in reaction_role_data.get("roles", []):
-            if str(payload.emoji) == role_data["emoji"] and payload.message_id == db[guild_id]['embeds'].find_one({"name": reaction_role_data["embed_name"]})["msg_id"]:
+            if str(payload.emoji) == role_data["emoji"] and payload.message_id == self.bot.db[guild_id]['embeds'].find_one({"name": reaction_role_data["embed_name"]})["msg_id"]:
                 guild = self.bot.get_guild(payload.guild_id)
                 role = guild.get_role(role_data["role_id"])
                 member = guild.get_member(payload.user_id)
@@ -170,13 +169,13 @@ class Reactionrole(commands.Cog):
             return
 
         guild_id = str(payload.guild_id)
-        reaction_role_data = db[guild_id]["reactionrole"].find_one({"embed_name": {"$exists": True}})
+        reaction_role_data = self.bot.db[guild_id]["reactionrole"].find_one({"embed_name": {"$exists": True}})
 
         if not reaction_role_data:
             return
 
         for role_data in reaction_role_data.get("roles", []):
-            if str(payload.emoji) == role_data["emoji"] and payload.message_id == db[guild_id]['embeds'].find_one({"name": reaction_role_data["embed_name"]})["msg_id"]:
+            if str(payload.emoji) == role_data["emoji"] and payload.message_id == self.bot.db[guild_id]['embeds'].find_one({"name": reaction_role_data["embed_name"]})["msg_id"]:
                 guild = self.bot.get_guild(payload.guild_id)
                 role = guild.get_role(role_data["role_id"])
                 member = guild.get_member(payload.user_id)

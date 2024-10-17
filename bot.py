@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 import os
-import sys
-import asyncio
+import time
+import data
 import logging
 import aiohttp
 import discord
-import datetime
 import traceback
 
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from collections import Counter
 from discord.ext import commands
-from db import db
 from slash import *
 from cogs.translate import translate_ctx_menu
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+import os
+from dotenv import load_dotenv; load_dotenv()
 
 EXTENSIONS: List[str] = [
     'cogs.translate',
-    'cogs.interactions',
+    'cogs.interactions',    
     'cogs.afk',
     'cogs.embed',
     'cogs.role',
@@ -33,7 +35,11 @@ EXTENSIONS: List[str] = [
     'cogs.auto',
     'cogs.user',
     'cogs.snipe',
-    'cogs.mod'
+    'cogs.mod',
+    'cogs.meta',
+    'cogs.goblet',
+    'cogs.botto',
+    'cogs.prefix'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -41,15 +47,15 @@ discord.utils.setup_logging()
 
 class Bot(commands.AutoShardedBot):
     def __init__(self) -> None:
-        allowed_mentions: discord.AllowedMentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
-        intents: discord.Intents = discord.Intents.all()
         super().__init__(
-            description='Just a Bot',
-            command_prefix=['?'],
-            allowed_mentions=allowed_mentions,
-            intents=intents,
+            description=data.bot_description,
+            command_prefix=self.get_prefix,
+            allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True),
+            intents=discord.Intents.all(),
             enable_debug_events=True
         )
+        self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
+        self.start_time = time.time()
         self.session: Optional[aiohttp.ClientSession] = None
         self.command_stats: Counter[str] = Counter()
         self.socket_stats: Counter[str] = Counter()
@@ -57,6 +63,23 @@ class Bot(commands.AutoShardedBot):
         self.logger: logging.Logger = logging.getLogger('bot')
         self.logger.info("Bot instance initialized successfully")
 
+    async def get_prefix(
+        self, 
+        message: discord.Message
+    ) -> List[str]:
+        if message.guild:
+            prefix_doc: dict = self.db[str(message.guild.id)]["config"].find_one({"_id": "prefix"})
+            if not prefix_doc or not prefix_doc.get("prefix"):
+                self.db[str(message.guild.id)]["config"].update_one(
+                    {"_id": "prefix"},
+                    {"$set": {"prefix": ["?"]}},
+                    upsert=True
+                )
+                return ["?"]
+            return prefix_doc["prefix"]
+        else:
+            return ["?"]
+        
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
         self.logger.info("aiohttp ClientSession created")
@@ -70,7 +93,6 @@ class Bot(commands.AutoShardedBot):
                 traceback.print_exc()
         
         group_commands: List[commands.Group] = [
-            BotGroup(name="bot", description="bot commands"),
             HolyGroup(name="holy", description="holy commands")
         ]
 
@@ -95,9 +117,8 @@ class Bot(commands.AutoShardedBot):
         
         await self.change_presence(status=discord.Status.dnd)
         self.logger.info("Bot presence changed to DND")
-                
+            
 
-        
         self.logger.info("Finished the setup_hook function")
 
     async def on_ready(self) -> None:
@@ -113,13 +134,17 @@ class Bot(commands.AutoShardedBot):
             self.logger.error(f'Failed to sync: {e}')
         self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
 
+
     async def on_command_completion(
         self, 
         context: commands.Context
     ) -> None:
-        full_command_name: str = context.command.qualified_name
-        split: List[str] = full_command_name.split(" ")
-        executed_command: str = str(split[0])
+        if not isinstance(context.command, (commands.HybridCommand, commands.HybridGroup)):
+            return
+
+        full_command_name: str = context.command.name
+        executed_command: str = full_command_name
+
         if context.guild is not None:
             self.logger.info(
                 f"Executed {executed_command} command in {context.guild.name} (ID: {context.guild.id}) by {context.author} (ID: {context.author.id})"
@@ -128,6 +153,9 @@ class Bot(commands.AutoShardedBot):
             self.logger.info(
                 f"Executed {executed_command} command by {context.author} (ID: {context.author.id}) in DMs"
             )
+
+
+            
     async def on_command_error(
         self, 
         context: commands.Context, 
@@ -243,28 +271,6 @@ class Bot(commands.AutoShardedBot):
             except Exception as e:
                 print(f"Failed to send error message to owner: {e}")
         self.logger.warning(f"Command error handled: {type(error).__name__}")
-
-    async def on_message(
-        self, 
-        message: discord.Message
-    ) -> None:
-
-        if message.author.bot:
-            return
-        
-        ctx: commands.Context = await self.get_context(message)
-        await self.invoke(ctx)
-
-    async def process_commands(
-        self, 
-        message: discord.Message
-    ) -> None:
-
-        ctx: commands.Context = await self.get_context(message)
-        if ctx.command is None:
-            return
-
-        await self.invoke(ctx)
 
     async def on_command(
         self, 

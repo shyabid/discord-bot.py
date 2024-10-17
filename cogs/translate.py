@@ -5,7 +5,6 @@ from discord import app_commands
 import aiohttp
 import discord
 import traceback
-from db import db 
 from typing import (
     Dict,
     Literal,
@@ -40,7 +39,6 @@ async def translate_ctx_menu(
 class Translate(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
-        self.db = db
     
     @commands.command(
         name="translate",
@@ -123,18 +121,18 @@ class Translate(commands.Cog):
 
         if state == "on":
             webhook = await ctx.channel.create_webhook(name="AutoTranslate")
-            self.db[str(guild_id)]["autotranslate"].update_one(
+            self.bot.db[str(guild_id)]["autotranslate"].update_one(
                 {"channel_id": channel_id},
                 {"$set": {"webhook_id": webhook.id, "webhook_token": webhook.token}},
                 upsert=True
             )
             await ctx.send("Auto-translation has been enabled for this channel.")
         else:
-            webhook_data = self.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
+            webhook_data = self.bot.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
             if webhook_data:
                 webhook = await self.bot.fetch_webhook(webhook_data["webhook_id"])
                 await webhook.delete()
-                self.db[str(guild_id)]["autotranslate"].delete_one({"channel_id": channel_id})
+                self.bot.db[str(guild_id)]["autotranslate"].delete_one({"channel_id": channel_id})
                 await ctx.send("Auto-translation has been disabled for this channel.")
             else:
                 await ctx.send("Auto-translation was not enabled for this channel.")
@@ -147,7 +145,7 @@ class Translate(commands.Cog):
         channel_id = message.channel.id
         guild_id = message.guild.id
 
-        webhook_data = self.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
+        webhook_data = self.bot.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
         if not webhook_data:
             return
 

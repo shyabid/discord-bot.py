@@ -1,26 +1,10 @@
 from discord.ext import commands
 import discord
 from discord import app_commands
-from db import db
 from urllib.parse import urlparse
 import typing
 from cogs.welcomer import parse_welcomer_content, WelcomerSetupSelect, BaseModal
 
-def get_embed_names(guild_id: str):
-    embeds = db[guild_id]['embeds'].find({}, {"name": 1, "_id": 0})
-    return [embed['name'] for embed in embeds]
-
-def autocomplete():
-    async def autocompletion(
-        interaction: discord.Interaction,
-        current: str
-    ) -> typing.List[app_commands.Choice[str]]:
-        embed_names = get_embed_names(str(interaction.guild.id))
-        return [
-            app_commands.Choice(name=name, value=name)
-            for name in embed_names if current.lower() in name.lower()
-        ]
-    return autocompletion
 
 class TitleModal(BaseModal):
     title = discord.ui.TextInput(
@@ -113,7 +97,7 @@ class EmbedSetupSelect(WelcomerSetupSelect):
             await self.update_preview_embed(interaction)
 
     async def finish_setup(self, interaction: discord.Interaction):
-        db[str(interaction.guild.id)]["embeds"].update_one(
+        self.bot.db[str(interaction.guild.id)]["embeds"].update_one(
             {"name": self.embed_data['name']}, 
             {"$set": self.embed_data}, 
             upsert=True
@@ -145,6 +129,11 @@ class Embed(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    def get_embed_names(self, guild_id: str):
+        embeds = self.bot.db[guild_id]['embeds'].find({}, {"name": 1, "_id": 0})
+        return [embed['name'] for embed in embeds]
+
+    
     @commands.hybrid_group(
         name="embed",
         description="Edit and create embeds.",
@@ -201,7 +190,7 @@ class Embed(commands.Cog):
             await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
-        embeds = db[str(ctx.guild.id)]['embeds'].find() 
+        embeds = self.bot.db[str(ctx.guild.id)]['embeds'].find() 
         embed_list = [f"`{embed['name']}`" for embed in embeds]
 
         if not embed_list:
@@ -224,7 +213,7 @@ class Embed(commands.Cog):
             await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
-        result = db[str(ctx.guild.id)]['embeds'].delete_one({"name": name})
+        result = self.bot.db[str(ctx.guild.id)]['embeds'].delete_one({"name": name})
 
         if result.deleted_count > 0:
             await ctx.reply(f"Embed `{name}` deleted successfully from the database.")
@@ -235,14 +224,14 @@ class Embed(commands.Cog):
         name="edit",
         description="Edit an existing embed."
     )
-    @app_commands.autocomplete(name=autocomplete())
+    # @app_commands.autocomplete(name=autocomplete())
     @app_commands.describe(name="Name of the embed that you want to edit")
     async def embed_edit(self, ctx: commands.Context, name: str):
         if not ctx.author.guild_permissions.manage_guild:
             await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
+        embed_data = self.bot.db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
 
         if not embed_data:
             await ctx.reply(f"No embed found with name `{name}`.")
@@ -259,7 +248,7 @@ class Embed(commands.Cog):
         name="send",
         description="Send an embed to a specified channel."
     )
-    @app_commands.autocomplete(name=autocomplete())
+    # @app_commands.autocomplete(name=autocomplete())
     @app_commands.describe(
         name="Name of the embed that you want to send",
         channel="The channel where you want to send the embed"
@@ -269,7 +258,7 @@ class Embed(commands.Cog):
             await ctx.reply("You do not have permission to use this command.", ephemeral=True)
             return
 
-        embed_data = db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
+        embed_data = self.bot.db[str(ctx.guild.id)]['embeds'].find_one({"name": name})
 
         if not embed_data:
             await ctx.reply(f"No embed found with name `{name}`.")

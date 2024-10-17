@@ -2,7 +2,6 @@ from discord.ext import commands
 from discord import app_commands
 import discord
 import requests
-from db import db
 from utils import PaginationView
 from typing import List, Dict, Any, Optional
 
@@ -12,7 +11,7 @@ class Anime(commands.Cog):
             bot: commands.Bot
         ) -> None:
         self.bot: commands.Bot = bot    
-        self.db = db
+        
 
     @commands.hybrid_group(
         name="anime",

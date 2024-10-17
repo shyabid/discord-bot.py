@@ -1,4 +1,27 @@
 
+bot_description = """
+Just a bot.
+
+"""
+
+emoji = {
+    "tag": "<:tag:1296482912107102301>",
+    "dnd": "<:dnd:1296482922236219462>",
+    "online": "<:online:1296482933053456446>",
+    "idle": "<:idle:1296482945783038002>",
+    "offline": "<:offline:1296482954146484276>",
+    "green_tick": "✅",
+    "red_tick": "<:red_tick:1296482973142614058>",
+    "grey_tick": "<:grey_tick:1296483008194412574>",
+    "mod": "<:mod:1296483024346546237>",
+    "booster": "<:booster:1296483033658163200>",
+    "staff": "<:staff:1296483042973585469>",
+    "text_channel": "💬",
+    "voice_channel": "🔊",
+    "branch": "<:branch:1296483082441986171>",
+    "active_developer": "<:acitive_developer:1296483123126599752>"
+}
+
 interaction_data = {
     "lurk": [
         "https://nekos.best/api/v2/lurk",
@@ -161,5 +184,3 @@ interaction_data = {
         ["laughs", "giggles"]
     ]
 }
-
-
