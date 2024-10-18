@@ -324,7 +324,7 @@ class Misc(commands.Cog):
                     data = await response.json()
                     if data and isinstance(data, list) and len(data) > 0:
                         word_data = data[0]
-                        embed = discord.Embed(title=f"Definition of '{word_data['word']}'", color=discord.Color.blue())
+                        embed = discord.Embed(title=f"Definition of '{word_data['word']}'", color=discord.Color.dark_grey())
                         
                         if 'phonetic' in word_data:
                             embed.add_field(name="Phonetic", value=word_data['phonetic'], inline=False)
@@ -394,17 +394,17 @@ class Misc(commands.Cog):
                     if response.status == 200:
                         data = await response.json()
                     else:
-                        await ctx.send(f"Error fetching lyrics. Status code: {response.status}")
+                        await ctx.reply(f"Error fetching lyrics. Status code: {response.status}")
                         return
         except aiohttp.ClientError as e:
-            await ctx.send(f"Error connecting to the lyrics API: {str(e)}")
+            await ctx.reply(f"Error connecting to the lyrics API: {str(e)}")
             return
         except Exception as e:
-            await ctx.send(f"An unexpected error occurred: {str(e)}")
+            await ctx.reply(f"An unexpected error occurred: {str(e)}")
             return
 
         if not data or "error" in data:
-            await ctx.send(f"No lyrics found for '{query}'. Please try a different search.")
+            await ctx.reply(f"No lyrics found for '{query}'. Please try a different search.")
             return
 
         try:
@@ -414,13 +414,13 @@ class Misc(commands.Cog):
             thumbnail_url = data.get("thumbnail", {}).get("genius", "")
 
             if not lyrics:
-                await ctx.send(f"No lyrics found for '{query}'. The song might not have lyrics.")
+                await ctx.reply(f"No lyrics found for '{query}'. The song might not have lyrics.")
                 return
 
             embed = discord.Embed(
                 title=f"{title} - {author}",
                 description=lyrics[:2048],  # Discord has a 2048 character limit for embed description
-                color=discord.Color.blue()
+                color=discord.Color.dark_grey()
             )
 
             if thumbnail_url:
@@ -435,7 +435,7 @@ class Misc(commands.Cog):
                 await ctx.reply(embed=embed)
 
         except Exception as e:
-            await ctx.send(f"An error occurred while processing the lyrics: {str(e)}")
+            await ctx.reply(f"An error occurred while processing the lyrics: {str(e)}")
 
     @commands.command(name="lyrics", description="Get lyrics for a song")
     async def lyrics_command(self, ctx: commands.Context, *, query: str):

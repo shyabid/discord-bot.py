@@ -126,16 +126,16 @@ class Translate(commands.Cog):
                 {"$set": {"webhook_id": webhook.id, "webhook_token": webhook.token}},
                 upsert=True
             )
-            await ctx.send("Auto-translation has been enabled for this channel.")
+            await ctx.reply("Auto-translation has been enabled for this channel.")
         else:
             webhook_data = self.bot.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
             if webhook_data:
                 webhook = await self.bot.fetch_webhook(webhook_data["webhook_id"])
                 await webhook.delete()
                 self.bot.db[str(guild_id)]["autotranslate"].delete_one({"channel_id": channel_id})
-                await ctx.send("Auto-translation has been disabled for this channel.")
+                await ctx.reply("Auto-translation has been disabled for this channel.")
             else:
-                await ctx.send("Auto-translation was not enabled for this channel.")
+                await ctx.reply("Auto-translation was not enabled for this channel.")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:

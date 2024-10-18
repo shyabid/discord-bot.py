@@ -16,7 +16,7 @@ class Mod(commands.Cog):
     @commands.hybrid_group(name="moderation", description="Moderation commands")
     async def moderation(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send("Please specify a moderation command.")
+            await ctx.reply("Please specify a moderation command.")
 
     @moderation.command(name="setlog", description="Set the moderation log channel")
     @commands.has_permissions(administrator=True)
@@ -24,7 +24,7 @@ class Mod(commands.Cog):
         guild_id = str(ctx.guild.id)
         config_collection = self.bot.db[guild_id]["config"]
         config_collection.update_one({}, {"$set": {"modlog": channel.id}}, upsert=True)
-        await ctx.send(f"Moderation log channel set to {channel.mention}")
+        await ctx.reply(f"Moderation log channel set to {channel.mention}")
 
     async def get_log_channel(self, guild_id: int) -> Optional[discord.TextChannel]:
         config = self.bot.db[str(guild_id)]["config"].find_one({})
@@ -61,7 +61,7 @@ class Mod(commands.Cog):
 
         log_channel = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
-            await ctx.send("Moderation log channel is not set. Please use `/moderation setlog` first.")
+            await ctx.reply("Moderation log channel is not set. Please use `/moderation setlog` first.")
             return
         
         ban_log_embed = discord.Embed(
@@ -144,7 +144,7 @@ class Mod(commands.Cog):
 
         log_channel = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
-            await ctx.send("Moderation log channel is not set. Please use `moderation setlog` first.")
+            await ctx.reply("Moderation log channel is not set. Please use `moderation setlog` first.")
             return
 
         kick_log_embed = discord.Embed(
@@ -189,7 +189,7 @@ class Mod(commands.Cog):
 
         await log_channel.send(embed=kick_log_embed)
         await ctx.guild.kick(member, reason=reason)
-        await ctx.send(f"{member} has been kicked.")
+        await ctx.reply(f"{member} has been kicked.")
 
 
     @moderation.command(name="timeout", description="Timeout a member")
@@ -210,7 +210,7 @@ class Mod(commands.Cog):
 
         log_channel = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
-            await ctx.send("Moderation log channel is not set. Please use `moderation setlog` first.")
+            await ctx.reply("Moderation log channel is not set. Please use `moderation setlog` first.")
             return
 
         duration_seconds = utils.parse_time_string(duration)
@@ -237,7 +237,7 @@ class Mod(commands.Cog):
 
         await log_channel.send(embed=timeout_log_embed)
         await member.timeout(discord.utils.utcnow() + datetime.timedelta(seconds=duration_seconds), reason=reason)
-        await ctx.send(f"{member} has been timed out for {utils.format_seconds(duration_seconds)}.")
+        await ctx.reply(f"{member} has been timed out for {utils.format_seconds(duration_seconds)}.")
 
 
 async def setup(bot):

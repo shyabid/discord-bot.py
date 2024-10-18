@@ -10,6 +10,8 @@ import traceback
 
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
+import typing
+from difflib import SequenceMatcher
 from collections import Counter
 from discord.ext import commands
 from slash import *
@@ -271,6 +273,60 @@ class Bot(commands.AutoShardedBot):
             except Exception as e:
                 print(f"Failed to send error message to owner: {e}")
         self.logger.warning(f"Command error handled: {type(error).__name__}")
+
+
+    async def find_member(
+        self,
+        guild: discord.Guild,
+        query: str
+    ) -> typing.Optional[discord.Member]:
+
+        def calculate_similarity(a: str, b: str) -> float:
+            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+        best_match: typing.Optional[discord.Member] = None
+        best_score: float = 0
+
+        for member in guild.members:
+            if query.isdigit() and str(member.id).startswith(query):
+                return member
+
+            username_score = calculate_similarity(query, member.name)
+            if username_score > best_score:
+                best_match = member
+                best_score = username_score
+
+            if member.display_name != member.name:
+                display_name_score = calculate_similarity(query, member.display_name)
+                if display_name_score > best_score:
+                    best_match = member
+                    best_score = display_name_score
+
+        return best_match
+
+    async def find_role(
+        self,
+        guild: discord.Guild, 
+        query: str
+    ) -> typing.Optional[discord.Role]:
+
+        def calculate_similarity(a: str, b: str) -> float:
+            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+        best_match: typing.Optional[discord.Role] = None
+        best_score: float = 0
+
+        for role in guild.roles:
+            if query in str(role.id):
+                return role
+
+            role_name_score = calculate_similarity(query, role.name)
+            if role_name_score > best_score:
+                best_match = role
+                best_score = role_name_score
+
+        return best_match
+
 
     async def on_command(
         self, 

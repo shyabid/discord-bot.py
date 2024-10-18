@@ -58,7 +58,7 @@ class User(commands.Cog):
         /user info
         """
         member = member or ctx.author
-        embed = discord.Embed(title=f"User Info - {member}", color=discord.Color.blue())
+        embed = discord.Embed(title=f"User Info - {member}", color=discord.Color.dark_grey())
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="ID", value=member.id)
         embed.add_field(name="Joined", value=member.joined_at.strftime("%Y-%m-%d %H:%M:%S"))
@@ -115,7 +115,7 @@ class User(commands.Cog):
         /user avatar
         """
         member = member or ctx.author
-        embed = discord.Embed(title=f"Avatar - {member}", color=discord.Color.blue())
+        embed = discord.Embed(title=f"Avatar - {member}", color=discord.Color.dark_grey())
         embed.set_image(url=member.display_avatar.url)
         await ctx.send(embed=embed)
 
@@ -172,7 +172,7 @@ class User(commands.Cog):
         global_perms = member.guild_permissions
         channel_perms = ctx.channel.permissions_for(member)
         
-        embed = discord.Embed(title=f"Permissions - {member}", color=discord.Color.blue())
+        embed = discord.Embed(title=f"Permissions - {member}", color=discord.Color.dark_grey())
         
         global_perm_list = []
         channel_perm_list = []
@@ -247,7 +247,7 @@ class User(commands.Cog):
         member = member or ctx.author
         user = await self.bot.fetch_user(member.id)
         if user.banner:
-            embed = discord.Embed(title=f"Banner - {member}", color=discord.Color.blue())
+            embed = discord.Embed(title=f"Banner - {member}", color=discord.Color.dark_grey())
             embed.set_image(url=user.banner.url)
             await ctx.send(embed=embed)
         else:

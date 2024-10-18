@@ -113,7 +113,7 @@ class Auto(commands.Cog):
                 subcommand = self.react_list
                 args = args[1:]
             else:
-                await ctx.send("Invalid subcommand. Use `?help autoreact` for more information.")
+                await ctx.reply("Invalid subcommand. Use `?help autoreact` for more information.")
                 return
 
             if subcommand == self.react_create:
@@ -161,7 +161,7 @@ class Auto(commands.Cog):
                 subcommand = self.reply_list
                 args = args[1:] 
             else:
-                await ctx.send("Invalid subcommand. Use `?help autoreply` for more information.")
+                await ctx.reply("Invalid subcommand. Use `?help autoreply` for more information.")
                 return
 
             if subcommand == self.reply_create:
@@ -232,7 +232,7 @@ class Auto(commands.Cog):
             {"$set": autoreact_data}, 
             upsert=True
         )
-        await ctx.send(f"Auto-reaction created for trigger: `{trigger}`")
+        await ctx.reply(f"Auto-reaction created for trigger: `{trigger}`")
 
     @autoreact.command(
         name="delete", 
@@ -248,7 +248,7 @@ class Auto(commands.Cog):
         autoreact_doc = self.bot.db[guild_id]["autoreact"].find_one()
         
         if not autoreact_doc:
-            await ctx.send("No auto-reactions set up.")
+            await ctx.reply("No auto-reactions set up.")
             return
 
         autoreact_data: Dict[str, Any] = autoreact_doc
@@ -267,10 +267,10 @@ class Auto(commands.Cog):
                         {"$unset": {stored_trigger: ""}}, 
                         upsert=True
                     )
-                    await ctx.send(f"Auto-reaction deleted for trigger: `{stored_trigger}`")
+                    await ctx.reply(f"Auto-reaction deleted for trigger: `{stored_trigger}`")
                     return
 
-        await ctx.send(f"No auto-reaction found for trigger: `{trigger}`")
+        await ctx.reply(f"No auto-reaction found for trigger: `{trigger}`")
 
 
     @autoreact.command(
@@ -293,9 +293,9 @@ class Auto(commands.Cog):
                 description=formatted_triggers,
                 color=discord.Color.dark_grey()
             )
-            await ctx.send(embed=embed)
+            await ctx.reply(embed=embed)
         else:
-            await ctx.send("No auto-reactions set up.")
+            await ctx.reply("No auto-reactions set up.")
 
     @autoreply.command(
         name="create", 
@@ -335,10 +335,10 @@ class Auto(commands.Cog):
             trigger = trigger_part
         
         if not trigger:
-            await ctx.send("Trigger cannot be empty.")
+            await ctx.reply("Trigger cannot be empty.")
             return
         if not reply_part:
-            await ctx.send("Reply cannot be empty.")
+            await ctx.reply("Reply cannot be empty.")
             return
         
         autorespond_data[trigger.lower()] = {
@@ -350,7 +350,7 @@ class Auto(commands.Cog):
             {"$set": autorespond_data}, 
             upsert=True
         )
-        await ctx.send(f"Auto-response created for trigger: `{trigger}`")
+        await ctx.reply(f"Auto-response created for trigger: `{trigger}`")
     
     
     
@@ -368,7 +368,7 @@ class Auto(commands.Cog):
         autorespond_doc = self.bot.db[guild_id]["autorespond"].find_one()
         
         if not autorespond_doc:
-            await ctx.send("No auto-responses set up.")
+            await ctx.reply("No auto-responses set up.")
             return
 
         autorespond_data: Dict[str, Any] = autorespond_doc
@@ -387,10 +387,10 @@ class Auto(commands.Cog):
                         {"$unset": {stored_trigger: ""}}, 
                         upsert=True
                     )
-                    await ctx.send(f"Auto-response deleted for trigger: `{stored_trigger}`")
+                    await ctx.reply(f"Auto-response deleted for trigger: `{stored_trigger}`")
                     return
 
-        await ctx.send(f"No auto-response found for trigger: `{trigger}`")
+        await ctx.reply(f"No auto-response found for trigger: `{trigger}`")
 
     @autoreply.command(
         name="list", 
@@ -412,9 +412,9 @@ class Auto(commands.Cog):
                 description=formatted_triggers,
                 color=discord.Color.dark_grey()
             )
-            await ctx.send(embed=embed)
+            await ctx.reply(embed=embed)
         else:
-            await ctx.send("No auto-responses set up.")
+            await ctx.reply("No auto-responses set up.")
 
 
 async def setup(

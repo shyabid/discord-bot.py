@@ -326,7 +326,7 @@ class WelcomerSetupSelect(discord.ui.Select):
                 interaction.user
             )
         else:
-            embed.description = "\u200b"  # Add an empty character if no description
+            embed.description = "\u200b"
         
         if self.welcomer_data.get('color'):
             embed.color = discord.Color.from_str(
@@ -1087,7 +1087,7 @@ class Welcomer(commands.Cog):
                 ))
 
         try:
-            await ctx.send(content=message_content, embed=embed, view=view)
+            await ctx.reply(content=message_content, embed=embed, view=view)
         except discord.errors.HTTPException as e:
             error_message = (
                 f"An error occurred while sending "
@@ -1273,7 +1273,7 @@ class Welcomer(commands.Cog):
         ]
         view = discord.ui.View()
         view.add_item(ChannelSelect(text_channels))
-        await ctx.send(
+        await ctx.reply(
             "Please select a channel for welcome messages:",
             view=view
         )

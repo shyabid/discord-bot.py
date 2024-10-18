@@ -5,7 +5,6 @@ from utils import convert_seconds
 from datetime import datetime, timezone
 from typing import Optional
 import calendar
-from db import db
 import time
 
 

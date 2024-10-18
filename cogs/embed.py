@@ -155,7 +155,7 @@ class Embed(commands.Cog):
 - `?embed send <name> <channel>`
   - Sends an embed to a specified channel
                 """,
-                color=discord.Color.blue()
+                color=discord.Color.dark_grey()
             )
             await ctx.reply(embed=help_embed)
 

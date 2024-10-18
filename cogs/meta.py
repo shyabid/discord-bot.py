@@ -14,7 +14,7 @@ class Meta(commands.Cog):
     @commands.hybrid_command(name="ping", description="Check the bot's latency")
     async def ping(self, ctx: commands.Context):
         latency = round(self.bot.latency * 1000)
-        await ctx.send(embed=discord.Embed(description=f"Pong! Latency: {latency}ms", color=discord.Color.dark_grey()))
+        await ctx.reply(embed=discord.Embed(description=f"Pong! Latency: {latency}ms", color=discord.Color.dark_grey()))
 
     @commands.hybrid_command(
         name="serverinfo", 
@@ -136,7 +136,7 @@ class Meta(commands.Cog):
         fmt = f'{fmt}Total Emoji: {len(guild.emojis)}/{guild.emoji_limit*2}'
         e.add_field(name='Emoji', value=fmt, inline=False)
         e.set_footer(text='Created').timestamp = guild.created_at
-        await ctx.send(embed=e)
+        await ctx.reply(embed=e)
 
 
 

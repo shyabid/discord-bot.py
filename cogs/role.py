@@ -1,7 +1,6 @@
 from discord.ext import commands
 import discord
 from discord import app_commands
-from utils import find_member, find_role
 from typing import (
     Dict,
     List,
@@ -23,29 +22,32 @@ class Role(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     async def role(
         self, 
-        ctx: commands.Context, 
-        user: str, 
-        role_name: str
+        ctx: commands.Context
     ) -> None:
-        """Toggle a role for a user."""
-        member: Optional[discord.Member] = await find_member(ctx.guild, user)
-        if not member:
-            await ctx.send("Couldn't find that user.")
-            return
+        if not ctx.invoked_subcommand:
+            if len(ctx.message.content.split()) > 2:
+                member_name = ctx.message.content.split()[1].lower()
+                role_name = ctx.message.content.split()[2].lower()
 
-        role: Optional[discord.Role] = await find_role(ctx.guild, role_name)
-        if not role:
-            await ctx.send("Couldn't find that role.")
-            return
+                member = await self.bot.find_member(ctx.guild, member_name)
+                if not member:
+                    raise commands.UserNotFound("Couldn't find that user.")
 
-        if role in member.roles:
-            await member.remove_roles(role)
-            action: str = "Removed"
-        else:
-            await member.add_roles(role)
-            action: str = "Added"
+                role: Optional[discord.Role] = await self.bot.find_role(ctx.guild, role_name)
+                if not role:
+                    raise commands.RoleNotFound("Couldn't find that role.")
 
-        await ctx.send(f"{action} `{role.name}` {'from' if action == 'Removed' else 'to'} {member.mention}.")
+                if role in member.roles:
+                    await member.remove_roles(role)
+                    action: str = "Removed"
+                else:
+                    await member.add_roles(role)
+                    action: str = "Added"
+
+                await ctx.reply(f"{action} `{role.name}` {'from' if action == 'Removed' else 'to'} {member.mention}.")
+            else:
+                raise commands.CommandNotFound("No subcommand specified. Use `?help role` for more information.")
+                
 
     @role.command(
         name="add",
@@ -60,10 +62,10 @@ class Role(commands.Cog):
         role: discord.Role
     ) -> None:
         if role in user.roles:
-            await ctx.send(f"{user.mention} already has the role {role.name}.")
+            await ctx.reply(f"{user.mention} already has the role {role.name}.")
             return
         await user.add_roles(role)
-        await ctx.send(f"Added {role.name} to {user.mention}.")
+        await ctx.reply(f"Added {role.name} to {user.mention}.")
 
     @role.command(
         name="remove",
@@ -78,10 +80,10 @@ class Role(commands.Cog):
         role: discord.Role
     ) -> None:
         if role not in user.roles:
-            await ctx.send(f"{user.mention} doesn't have the role {role.name}.")
+            await ctx.reply(f"{user.mention} doesn't have the role {role.name}.")
             return
         await user.remove_roles(role)
-        await ctx.send(f"Removed {role.name} from {user.mention}.")
+        await ctx.reply(f"Removed {role.name} from {user.mention}.")
 
     @role.command(
         name="create",
@@ -96,22 +98,21 @@ class Role(commands.Cog):
         color = discord.Color.default()
     ) -> None:
         new_role: discord.Role = await ctx.guild.create_role(name=name, color=color)
-        await ctx.send(f"Created new role: {new_role.name}")
+        await ctx.reply(f"Created new role: {new_role.name}")
 
     @role.command(
         name="info",
         description="Get information about a role"
     )
-    @app_commands.describe(role="The role to get information about")
+    @app_commands.describe(role="Name of the role to get information about")
     async def role_info(
         self, 
         ctx: commands.Context, 
-        *, 
         role: str
     ) -> None:
-        role_obj: Optional[discord.Role] = await find_role(ctx.guild, role)
+        role_obj: Optional[discord.Role] = await self.bot.find_role(ctx.guild, role)
         if not role_obj:
-            await ctx.send("Couldn't find that role.")
+            await ctx.reply("Couldn't find that role.")
             return
 
         embed: discord.Embed = discord.Embed(title=f"Role Info: {role_obj.name}", color=role_obj.color)
@@ -127,7 +128,7 @@ class Role(commands.Cog):
         for name, value in embed_fields:
             embed.add_field(name=name, value=value)
 
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
     @role.command(
         name="edit",
@@ -138,14 +139,10 @@ class Role(commands.Cog):
     async def role_edit(
         self, 
         ctx: commands.Context, 
-        role: str, 
+        role: discord.Role, 
         name: Optional[str] = None, 
         color: Optional[str] = None
     ) -> None:
-        role_obj: Optional[discord.Role] = await find_role(ctx.guild, role)
-        if not role_obj:
-            await ctx.send("Couldn't find that role.")
-            return
 
         update_params: dict = {}
         if name:
@@ -154,10 +151,10 @@ class Role(commands.Cog):
             update_params['color'] = color
 
         if update_params:
-            await role_obj.edit(**update_params)
-            await ctx.send(f"Role `{role_obj.name}` has been updated.")
+            await role.edit(**update_params)
+            await ctx.reply(f"Role `{role.name}` has been updated.")
         else:
-            await ctx.send("No changes were specified for the role.")
+            await ctx.reply("No changes were specified for the role.")
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Role(bot))

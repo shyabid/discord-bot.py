@@ -91,11 +91,11 @@ class Help(commands.Cog):
                 view = discord.ui.View()
                 view.add_item(select_menu)
                 
-                await ctx.send(embed=embed, view=view)
+                await ctx.reply(embed=embed, view=view)
             else:
                 cmd = self.bot.get_command(command)
                 if cmd is None:
-                    await ctx.send(f"No command called '{command}' found.")
+                    await ctx.reply(f"No command called '{command}' found.")
                     return
 
                 embed = discord.Embed(
@@ -118,9 +118,9 @@ class Help(commands.Cog):
                 if cmd.aliases:
                     embed.add_field(name="Aliases", value=", ".join(cmd.aliases), inline=False)
 
-                await ctx.send(embed=embed)
+                await ctx.reply(embed=embed)
         except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
+            await ctx.reply(f"An error occurred: {str(e)}")
             self.bot.logger.error(f"Error in help command: {e}", exc_info=True)
 
 async def setup(bot: commands.Bot) -> None:

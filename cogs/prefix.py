@@ -48,7 +48,7 @@ class Prefix(commands.Cog):
             )
         )
 
-        await ctx.send(f"Prefix changed to {prefix}")
+        await ctx.reply(f"Prefix changed to {prefix}")
 
     @prefix.command(
         name="reset",
@@ -61,7 +61,7 @@ class Prefix(commands.Cog):
             None, 
             lambda: self.bot.db[str(ctx.guild.id)]["config"].delete_one({"_id": "prefix"})
         )
-        await ctx.send("Prefix reset to default.")
+        await ctx.reply("Prefix reset to default.")
 
     @prefix.command(
         name="list",
@@ -73,10 +73,10 @@ class Prefix(commands.Cog):
             None, 
             lambda: self.bot.db[str(ctx.guild.id)]["config"].find_one({"_id": "prefix"})
         )
-        embed = discord.Embed(title="Bot Prefixes", color=discord.Color.blue())
+        embed = discord.Embed(title="Bot Prefixes", color=discord.Color.dark_grey())
         prefix_list = "\n".join([f"{i+1}. {prefix}" for i, prefix in enumerate(prefixes.get('prefix', []))]) if prefixes else "No custom prefixes set."
         embed.description = prefix_list if prefix_list else "No custom prefixes set."
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
     @prefix.command(
         name="remove",
@@ -97,9 +97,9 @@ class Prefix(commands.Cog):
         )
         
         if result.modified_count == 0:
-            await ctx.send(f"Prefix '{prefix}' was not found in the list.")
+            await ctx.reply(f"Prefix '{prefix}' was not found in the list.")
         else:
-            await ctx.send(f"Prefix '{prefix}' has been removed.")
+            await ctx.reply(f"Prefix '{prefix}' has been removed.")
     
     @prefix.command(
         name="add",
@@ -116,7 +116,7 @@ class Prefix(commands.Cog):
             lambda: self.bot.db[str(ctx.guild.id)]["config"].find_one({"_id": "prefix"})
         )
         if existing_prefixes and prefix in existing_prefixes.get("prefix", []):
-            await ctx.send(f"Prefix '{prefix}' already exists.")
+            await ctx.reply(f"Prefix '{prefix}' already exists.")
             return
 
         await loop.run_in_executor(
@@ -128,7 +128,7 @@ class Prefix(commands.Cog):
             )
         )
 
-        await ctx.send(f"Prefix '{prefix}' has been added.")
+        await ctx.reply(f"Prefix '{prefix}' has been added.")
     
 
 async def setup(bot):

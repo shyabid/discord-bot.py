@@ -289,10 +289,10 @@ class Goblet(commands.Cog):
     async def goblet(self, ctx: commands.Context, opponent: discord.Member):
         """Start a game of Gobblet Gobblers with an opponent."""
         if opponent.bot:
-            await ctx.send(f"You can't play against a bot!")
+            await ctx.reply(f"You can't play against a bot!")
             return
         if opponent == ctx.author:
-            await ctx.send(f"You can't play against yourself!")
+            await ctx.reply(f"You can't play against yourself!")
             return
 
         prompt = Prompt(ctx.author, opponent)

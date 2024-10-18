@@ -26,7 +26,7 @@ class News(commands.Cog):
             embed = discord.Embed(
                 title=article['title'],
                 description=article['summary'],
-                color=discord.Color.blue()
+                color=discord.Color.dark_grey()
             )
             if article['news_link'] and self.is_valid_url(article['news_link']):
                 embed.url = article['news_link']
@@ -77,7 +77,7 @@ class News(commands.Cog):
         news_data = await self.fetch_news_data()
         
         if not news_data:
-            await ctx.send("Failed to fetch news data.")
+            await ctx.reply("Failed to fetch news data.")
             return
 
         self._news_categories = list(news_data.keys())
@@ -88,11 +88,11 @@ class News(commands.Cog):
         embeds = await self.create_news_embeds(news_data, category)
         
         if not embeds:
-            await ctx.send(f"No news found for category: {category}")
+            await ctx.reply(f"No news found for category: {category}")
             return
 
         view = PaginationView(embeds, ctx.author)
-        await ctx.send(embed=embeds[0], view=view)
+        await ctx.reply(embed=embeds[0], view=view)
         view.message = await ctx.interaction.original_response()
 
     @commands.Cog.listener()
