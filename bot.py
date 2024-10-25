@@ -22,31 +22,33 @@ import os
 from dotenv import load_dotenv; load_dotenv()
 
 EXTENSIONS: List[str] = [
-    'cogs.translate',
-    'cogs.interactions',    
-    'cogs.afk',
-    'cogs.embed',
-    'cogs.role',
-    'cogs.welcomer',
-    'cogs.news',
-    'cogs.misc',
-    'cogs.quiz',
-    'cogs.fun',
-    'cogs.anime',
-    'cogs.help',
-    'cogs.auto',
+    # 'cogs.translate',
+    # 'cogs.interactions',    
+    # 'cogs.afk',
+    # 'cogs.embed',
+    # 'cogs.role',
+    # 'cogs.welcomer',
+    # 'cogs.news',
+    # 'cogs.misc',
+    # 'cogs.quiz',
+    # 'cogs.fun',
+    # 'cogs.anime',
+    # 'cogs.help',
+    # 'cogs.auto',
     'cogs.user',
-    'cogs.snipe',
-    'cogs.mod',
-    'cogs.meta',
-    'cogs.goblet',
-    'cogs.botto',
-    'cogs.prefix'
+    # 'cogs.snipe',
+    # 'cogs.mod',
+    # 'cogs.meta',
+    # 'cogs.goblet',
+    # 'cogs.botto',
+    # 'cogs.prefix',
+    'cogs.reminder',
+    'cogs.audio',
+    'cogs.auditlog',
 ]
 
 # Setup logging using discord's prebuilt logging
 discord.utils.setup_logging()
-
 class Bot(commands.AutoShardedBot):
     def __init__(self) -> None:
         super().__init__(
@@ -54,7 +56,8 @@ class Bot(commands.AutoShardedBot):
             command_prefix=self.get_prefix,
             allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True),
             intents=discord.Intents.all(),
-            enable_debug_events=True
+            enable_debug_events=True,
+            case_insensitive=True
         )
         self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
         self.start_time = time.time()
@@ -157,7 +160,6 @@ class Bot(commands.AutoShardedBot):
             )
 
 
-            
     async def on_command_error(
         self, 
         context: commands.Context, 
@@ -187,7 +189,9 @@ class Bot(commands.AutoShardedBot):
         elif isinstance(error, commands.MissingRequiredArgument):
             command_name = context.command.qualified_name
             params = [f"<{param}>" for param in context.command.clean_params]
-            usage = f"{self.command_prefix[0]}{command_name} {' '.join(params)}"
+            prefixes = await self.get_prefix(context.message)
+            
+            usage = f"{prefixes[0]}{command_name} {' '.join(params)}"
             
             missing_param = str(error.param)
             description = f"```\n{usage}\n```"
@@ -274,33 +278,36 @@ class Bot(commands.AutoShardedBot):
                 print(f"Failed to send error message to owner: {e}")
         self.logger.warning(f"Command error handled: {type(error).__name__}")
 
-
     async def find_member(
         self,
         guild: discord.Guild,
         query: str
     ) -> typing.Optional[discord.Member]:
-
-        def calculate_similarity(a: str, b: str) -> float:
-            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-        best_match: typing.Optional[discord.Member] = None
-        best_score: float = 0
-
-        for member in guild.members:
-            if query.isdigit() and str(member.id).startswith(query):
+        if query.isdigit():
+            member = guild.get_member(int(query))
+            if member:
                 return member
 
-            username_score = calculate_similarity(query, member.name)
-            if username_score > best_score:
-                best_match = member
-                best_score = username_score
+        members = await guild.query_members(query, limit=1)
+        if members:
+            return members[0]
+        
+        query_lower = query.lower()
+        best_match = None
+        best_score = 0
 
-            if member.display_name != member.name:
-                display_name_score = calculate_similarity(query, member.display_name)
-                if display_name_score > best_score:
+        for member in guild.members:
+            if query_lower in member.name.lower():
+                score = len(query_lower) / len(member.name)
+                if score > best_score:
                     best_match = member
-                    best_score = display_name_score
+                    best_score = score
+            
+            if member.nick and query_lower in member.nick.lower():
+                score = len(query_lower) / len(member.nick)
+                if score > best_score:
+                    best_match = member
+                    best_score = score
 
         return best_match
 

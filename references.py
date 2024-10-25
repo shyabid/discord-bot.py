@@ -223,5 +223,21 @@ class AnsiBuilder:
     def block(self) -> str:
         return f"```ansi\n{self.text}```"
 
-        
+    @commands.command()
+    async def test(self, ctx: commands.Context):
+        async for log in ctx.guild.audit_logs(limit=100):
+            await ctx.send(f"{log.user} did {log.action} to {log.target}")
+
+
+    @commands.command()
+    async def test2(self, ctx: commands.Context, name: str, filter: str):
+        automod = await ctx.guild.create_automod_rule(
+            name=name,
+            event_type=discord.AutoModRuleEventType.message_send,
+            trigger=discord.AutoModTrigger(
+                keyword_filter=[filter]
+            ),
+            actions=[discord.AutoModRuleAction(type=discord.AutoModRuleActionType.block_message)]
+        )
+        await ctx.send(f"Created automod rule with ID {automod.id}")
         

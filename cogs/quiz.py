@@ -119,29 +119,31 @@ class Quiz(commands.Cog):
         if ctx.invoked_subcommand is None:
             subcommand = ctx.message.content.split()[1].lower() if len(ctx.message.content.split()) > 1 else None
 
-            if subcommand in ["lb", "top"]:
-                await self.quiz_leaderboard(ctx)
-                return
-            elif subcommand in ["history", "his", "h", "hist"]:
-                await self.quiz_random(ctx, category="history")
-                return
-            elif subcommand in ["general", "general_knowledge"]:
-                await self.quiz_random(ctx, category="gk")
-                return
-            elif subcommand in ["m", "mu"]:
-                await self.quiz_random(ctx, category="music")
-                return
-            elif subcommand in ["a", "anim", "ani", "anm"]:
-                await self.quiz_random(ctx, category="anime")
-                return
-            elif subcommand in [ "s", "sci", "tech", "technology", "chem", "physics", "biology", "maths", "math", "science_and_nature"]:
-                await self.quiz_random(ctx, category="science")
-                return
-            elif subcommand in ["g", "game", "play", "plays"]:
-                await self.quiz_random(ctx, category="games")
-                return
+            category_mapping = {
+                "lb": "leaderboard",    "top": "leaderboard",
+                "history": "history",   "his": "history",
+                "h": "history",         "hist": "history",
+                "general": "gk",        "general_knowledge": "gk",
+                "m": "music",           "mu": "music",
+                "a": "anime",           "anim": "anime",
+                "ani": "anime",         "anm": "anime",
+                "s": "science",         "sci": "science",
+                "tech": "science",      "technology": "science",
+                "chem": "science",      "physics": "science",
+                "biology": "science",   "maths": "science",
+                "math": "science",      "science_and_nature": "science",
+                "g": "games",           "game": "games",
+                "play": "games",        "plays": "games"
+            }
 
-            await self.quiz_random(ctx)
+            category = category_mapping.get(subcommand, "random")
+
+            if category == "leaderboard":
+                await self.quiz_leaderboard(ctx)
+            elif category == "random":
+                await self.quiz_random(ctx)
+            else:
+                await self.quiz_random(ctx, category=category)
 
     @quiz.command(name="start", description="Take a random quiz!")
     async def quiz_random(self, ctx: commands.Context, category: Literal["history", "gk", "music", "anime", "science", "games"] = None):

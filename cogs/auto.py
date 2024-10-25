@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import app_commands
 import discord
 import os
 import re
@@ -188,6 +189,10 @@ class Auto(commands.Cog):
         description="Create a new auto-reaction"
     )
     @commands.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        type="The type of trigger",
+        trigger_emojis="The trigger and emojis to react with, separated by a ` | `"
+    )
     async def react_create(
         self, 
         ctx: commands.Context, 
@@ -237,6 +242,9 @@ class Auto(commands.Cog):
     @autoreact.command(
         name="delete", 
         description="Delete an auto-reaction"
+    )
+    @app_commands.describe(
+        trigger="The trigger to delete"
     )
     @commands.has_permissions(manage_guild=True)
     async def react_delete(
@@ -301,6 +309,10 @@ class Auto(commands.Cog):
         name="create", 
         description="Create a new auto-response"
     )
+    @app_commands.describe(
+        type="The type of trigger",
+        trigger_reply="The trigger and reply, separated by a ` | `"
+    )
     @commands.has_permissions(manage_guild=True)
     async def reply_create(
         self, 
@@ -357,6 +369,9 @@ class Auto(commands.Cog):
     @autoreply.command(
         name="delete", 
         description="Delete an auto-response"
+    )
+    @app_commands.describe(
+        trigger="The trigger to delete"
     )
     @commands.has_permissions(manage_guild=True)
     async def reply_delete(

@@ -2,6 +2,7 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 from typing import Optional
+from discord.ui import View, Select, Button
 
 class User(commands.Cog):
     def __init__(self, bot):
@@ -30,7 +31,7 @@ class User(commands.Cog):
         /user
         """
         if ctx.invoked_subcommand is None:
-            await ctx.send_help(ctx.command)
+            await ctx.reply_help(ctx.command)
 
     @user.command(
         name="info",
@@ -63,7 +64,7 @@ class User(commands.Cog):
         embed.add_field(name="ID", value=member.id)
         embed.add_field(name="Joined", value=member.joined_at.strftime("%Y-%m-%d %H:%M:%S"))
         embed.add_field(name="Created", value=member.created_at.strftime("%Y-%m-%d %H:%M:%S"))
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
     @commands.command(
         name="userinfo",
@@ -88,7 +89,6 @@ class User(commands.Cog):
         ?userinfo
         """
         await self.info(ctx, member=member)
-
     @user.command(
         name="avatar",
         description="Get the avatar of a user"
@@ -115,12 +115,71 @@ class User(commands.Cog):
         /user avatar
         """
         member = member or ctx.author
-        embed = discord.Embed(title=f"Avatar - {member}", color=discord.Color.dark_grey())
+        embed = discord.Embed(title=f"Avatar of {member.display_name}", color=discord.Color.dark_grey())
         embed.set_image(url=member.display_avatar.url)
-        await ctx.send(embed=embed)
+        embed.set_footer(text="Viewing server avatar | png")
+
+        class AvatarView(View):
+            def __init__(self, member: discord.Member):
+                super().__init__()
+                self.member = member
+                self.is_main_pfp = False
+                self.format = "png"
+
+            async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                return interaction.user.id == ctx.author.id
+
+            @discord.ui.button(label="Main PFP", style=discord.ButtonStyle.primary)
+            async def main_pfp_button(self, interaction: discord.Interaction, button: Button):
+                self.is_main_pfp = not self.is_main_pfp
+                url = self.member.avatar.url if self.is_main_pfp else self.member.display_avatar.url
+                button.label = "Server PFP" if self.is_main_pfp else "Main PFP"
+                embed = discord.Embed(
+                    title=f"Avatar - {self.member}", 
+                    color=discord.Color.dark_grey()
+                ).set_image(url=url)
+                embed.set_footer(text=f"Viewing {'main' if self.is_main_pfp else 'server'} avatar | {self.format}")
+                await interaction.response.edit_message(embed=embed, view=self)
+
+            @discord.ui.button(label="jpg", style=discord.ButtonStyle.secondary)
+            async def jpg_button(self, interaction: discord.Interaction, button: Button):
+                self.format = "jpg"
+                url = (self.member.avatar if self.is_main_pfp else self.member.display_avatar).replace(format="jpg", size=1024).url
+                embed = discord.Embed(
+                    title=f"Avatar - {self.member}", 
+                    color=discord.Color.dark_grey()
+                ).set_image(url=url)
+                embed.set_footer(text=f"Viewing {'main' if self.is_main_pfp else 'server'} avatar | {self.format}")
+                await interaction.response.edit_message(embed=embed, view=self)
+
+            @discord.ui.button(label="png", style=discord.ButtonStyle.secondary)
+            async def png_button(self, interaction: discord.Interaction, button: Button):
+                self.format = "png"
+                url = (self.member.avatar if self.is_main_pfp else self.member.display_avatar).replace(format="png", size=1024).url
+                embed = discord.Embed(
+                    title=f"Avatar - {self.member}", 
+                    color=discord.Color.dark_grey()
+                ).set_image(url=url)
+                embed.set_footer(text=f"Viewing {'main' if self.is_main_pfp else 'server'} avatar | {self.format}")
+                await interaction.response.edit_message(embed=embed, view=self)
+
+            @discord.ui.button(label="webp", style=discord.ButtonStyle.secondary)
+            async def webp_button(self, interaction: discord.Interaction, button: Button):
+                self.format = "webp"
+                url = (self.member.avatar if self.is_main_pfp else self.member.display_avatar).replace(format="webp", size=1024).url
+                embed = discord.Embed(
+                    title=f"Avatar - {self.member}", 
+                    color=discord.Color.dark_grey()
+                ).set_image(url=url)
+                embed.set_footer(text=f"Viewing {'main' if self.is_main_pfp else 'server'} avatar | {self.format}")
+                await interaction.response.edit_message(embed=embed, view=self)
+
+        view = AvatarView(member)
+        await ctx.reply(embed=embed, view=view)
 
     @commands.command(
         name="avatar",
+        aliases=["av", "pfp", "profilepic", "profilepicture"],
         description="Get the avatar of a user"
     )
     async def avatar_command(
@@ -193,7 +252,7 @@ class User(commands.Cog):
         if channel_permissions_str:
             embed.description += f"\n\nChannel-specific Permissions:\n{channel_permissions_str}"
         
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
     @commands.command(
         name="permissions",
@@ -249,9 +308,9 @@ class User(commands.Cog):
         if user.banner:
             embed = discord.Embed(title=f"Banner - {member}", color=discord.Color.dark_grey())
             embed.set_image(url=user.banner.url)
-            await ctx.send(embed=embed)
+            await ctx.reply(embed=embed)
         else:
-            await ctx.send(f"{member} doesn't have a banner.")
+            await ctx.reply(f"{member} doesn't have a banner.")
 
     @commands.command(
         name="banner",

@@ -36,14 +36,7 @@ class Afk(commands.Cog):
             afk_user_data = self.bot.db[str(message.guild.id)]["afks"].find_one({"userid": mention.id})
             
             if afk_user_data:
-                try:
-                    embed = discord.Embed(
-                        description=f"that user went AFK <t:{round(afk_user_data['since'])}:R> with reason: `{afk_user_data['reason']}`",
-                        color=discord.Color.dark_grey()
-                    )
-                    await message.reply(embed=embed)
-                except Exception as e:
-                    print(f"An error occurred while sending AFK message: {str(e)}")
+                await message.reply(f"that user went AFK <t:{round(afk_user_data['since'])}:R>: \n{afk_user_data['reason']}")
 
         
     @commands.hybrid_command(

@@ -29,7 +29,7 @@ class Snipe(commands.Cog):
             if len(self.edited_messages[before.guild.id]) > 8:
                 self.edited_messages[before.guild.id].pop(0)
 
-    @commands.hybrid_group(name="snipe", fallback="deleted")
+    @commands.hybrid_group(name="snipe", aliases=["s", "sn", "snp"], fallback="deleted")
     @commands.has_permissions(manage_messages=True)
     @app_commands.describe(count="Number of messages to snipe (default: 1, max: 8)")
     async def snipe(self, ctx, count: int = 1):
@@ -87,7 +87,7 @@ class Snipe(commands.Cog):
             await ctx.reply("No deleted messages found.")
             return
 
-        count = min(count, 8)  # Limit to 8 messages max
+        count = min(count, 8) 
         user_messages = [msg for msg, _ in self.deleted_messages[ctx.guild.id] if msg.author == user]
         if not user_messages:
             await ctx.reply(f"No deleted messages found for {user.mention}.")

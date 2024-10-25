@@ -5,3 +5,5 @@ psutil
 requests
 Quote2Image 
 pymongo[srv]
+ffmpeg
+yt-dlp
