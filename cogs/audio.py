@@ -300,8 +300,8 @@ class Audio(commands.Cog):
             'noplaylist': 'True',
             'default_search': 'auto',
             'quiet': True,
-            'username': 'shyabid'
-            'password': os.getenv('YT_PASS')
+            'username': 'shyabid',
+            'password': os.getenv('YT_PASS'),
             'outtmpl': os.path.join(
                 self.temp_dir, 
                 '%(title)s.%(ext)s'
