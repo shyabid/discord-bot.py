@@ -7,3 +7,4 @@ Quote2Image
 pymongo[srv]
 ffmpeg
 yt-dlp
+pynacl
