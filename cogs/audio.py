@@ -7,6 +7,7 @@ from collections import deque
 from typing import Optional, Dict, Any, List
 import time
 import os
+from dotenv import load_dotenv; load_dotenv()
 import tempfile
 
 class AudioControlView(discord.ui.View):
@@ -299,6 +300,8 @@ class Audio(commands.Cog):
             'noplaylist': 'True',
             'default_search': 'auto',
             'quiet': True,
+            'username': 'shyabid'
+            'password': os.getenv('YT_PASS')
             'outtmpl': os.path.join(
                 self.temp_dir, 
                 '%(title)s.%(ext)s'
