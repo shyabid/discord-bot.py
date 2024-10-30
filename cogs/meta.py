@@ -139,6 +139,5 @@ class Meta(commands.Cog):
         await ctx.reply(embed=e)
 
 
-
 async def setup(bot):
     await bot.add_cog(Meta(bot))

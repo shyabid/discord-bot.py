@@ -45,6 +45,7 @@ EXTENSIONS: List[str] = [
     'cogs.reminder',
     'cogs.audio',
     'cogs.auditlog',
+    'cogs.testing'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -250,7 +251,7 @@ class Bot(commands.AutoShardedBot):
                 color=discord.Color.dark_grey()
             )
             await context.reply(embed=embed)
-
+        
         else:
             try:
                 owner = await self.fetch_user(876869802948452372)
