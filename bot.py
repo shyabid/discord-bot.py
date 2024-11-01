@@ -46,6 +46,7 @@ EXTENSIONS: List[str] = [
     'cogs.audio',
     'cogs.auditlog',
     'cogs.testing'
+    'cogs.purge'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -172,86 +173,37 @@ class Bot(commands.AutoShardedBot):
             return
 
         if isinstance(error, commands.MissingPermissions):
-            embed: discord.Embed = discord.Embed(
-                title="Missing Permissions",
-                description=f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply(f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!")
 
         elif isinstance(error, commands.BotMissingPermissions):
-            embed: discord.Embed = discord.Embed(
-                title="Bot Missing Permissions",
-                description=f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply(f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!")
        
         elif isinstance(error, commands.MissingRequiredArgument):
             command_name = context.command.qualified_name
             params = [f"<{param}>" for param in context.command.clean_params]
             prefixes = await self.get_prefix(context.message)
-            
             usage = f"{prefixes[0]}{command_name} {' '.join(params)}"
-            
             missing_param = str(error.param)
-            description = f"```\n{usage}\n```"
-            
-            embed: discord.Embed = discord.Embed(
-                title="Missing Required Argument(s)",
-                description=description,
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply(f"```\n{usage}\n```")
 
         elif isinstance(error, commands.BadArgument):
-            embed: discord.Embed = discord.Embed(
-                title="Invalid Argument",
-                description=f"{str(error)}",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply(f"{str(error)}")
 
         elif isinstance(error, commands.MissingRole):
-            embed: discord.Embed = discord.Embed(
-                title="Missing Role",
-                description=f"You are missing the required role to use this command.",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply("You are missing the required role to use this command.")
 
         elif isinstance(error, commands.MissingAnyRole):
-            embed: discord.Embed = discord.Embed(
-                title="Missing Any Role",
-                description=f"You are missing one of the required roles to use this command.",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply("You are missing one of the required roles to use this command.")
 
         elif isinstance(error, commands.NSFWChannelRequired):
-            embed: discord.Embed = discord.Embed(
-                title="NSFW Channel Required",
-                description=f"This command can only be used in NSFW channels.",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply("This command can only be used in NSFW channels.")
         
         elif isinstance(error, commands.BadUnionArgument):
-            embed: discord.Embed = discord.Embed(
-                title="Invalid Argument",
-                description=f"Could not parse argument: {str(error)}",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
+            await context.reply(f"Could not parse argument: {str(error)}")
 
         elif isinstance(error, commands.BadLiteralArgument):
-            embed: discord.Embed = discord.Embed(
-                title="Invalid Option",
-                description=f"Invalid option. Allowed values are: {', '.join(map(str, error.literals))}",
-                color=discord.Color.dark_grey()
-            )
-            await context.reply(embed=embed)
-        
+            await context.reply(f"Invalid option. Allowed values are: {', '.join(map(str, error.literals))}")
+            
         else:
             try:
                 owner = await self.fetch_user(876869802948452372)

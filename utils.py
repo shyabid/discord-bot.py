@@ -136,27 +136,26 @@ async def find_member(
     query: str
 ) -> typing.Optional[discord.Member]:
 
-    def calculate_similarity(a: str, b: str) -> float:
-        return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
     best_match: typing.Optional[discord.Member] = None
     best_score: float = 0
+    count: int = 0
 
     for member in guild.members:
         if query.isdigit() and str(member.id).startswith(query):
             return member
 
-        username_score = calculate_similarity(query, member.name)
+        username_score = SequenceMatcher(None, query.lower(), member.name.lower()).ratio()
         if username_score > best_score:
             best_match = member
             best_score = username_score
 
         if member.display_name != member.name:
-            display_name_score = calculate_similarity(query, member.display_name)
+            display_name_score = SequenceMatcher(None, query.lower(), member.display_name.lower()).ratio()
             if display_name_score > best_score:
                 best_match = member
                 best_score = display_name_score
-
+        count += 1
+        print(f"{count} {best_score} {best_match.name}")
     return best_match
 
 async def find_role(
