@@ -859,6 +859,7 @@ class Vccontrol(commands.Cog, name="tempvc"):
             if not template_channel:
                 return
 
+            # Handle joining the template channel
             if after.channel == template_channel:
                 # Check if user has permission to create channels
                 if not member.guild.me.guild_permissions.manage_channels:
@@ -934,9 +935,12 @@ class Vccontrol(commands.Cog, name="tempvc"):
                 
                 await control_message.edit(view=view)
 
+                # Add the new channel to temp_channels
+                self.temp_channels[new_channel.id] = (member, control_message.id)
+
             # Handle owner leaving
             if before.channel and before.channel.id in self.temp_channels:
-                if self.temp_channels[before.channel.id] == member:  # Owner left
+                if self.temp_channels[before.channel.id][0] == member:  # Owner left
                     if len(before.channel.members) > 0:  # Others still in VC
                         # Find the control message in the channel
                         async for message in before.channel.history(limit=1000):
