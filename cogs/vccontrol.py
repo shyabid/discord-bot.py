@@ -7,11 +7,7 @@ from typing import (
     Any, 
     Union,
     List,
-    Tuple,
-    Callable,
-    Awaitable,
-    TypeVar,
-    cast
+    Tuple
 )
 from discord.ui import (
     Button,
@@ -20,12 +16,6 @@ from discord.ui import (
     TextInput,
     Select
 )
-import asyncio
-import os
-from discord.utils import get
-import shutil
-import subprocess
-from datetime import datetime
 
 EMOJIS: Dict[str, str] = {
     "edit": "✏️",

@@ -3,9 +3,8 @@ python-dotenv==1.0.1
 fastapi
 psutil
 requests
-Quote2Image 
+Quote2Image
 pymongo[srv]
 ffmpeg
 yt-dlp
-pyaudio
 pynacl
