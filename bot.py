@@ -43,7 +43,7 @@ EXTENSIONS: List[str] = [
     'cogs.botto',
     'cogs.prefix',
     'cogs.reminder',
-    'cogs.audio',
+    # 'cogs.audio',
     'cogs.auditlog',
     'cogs.testing'
     'cogs.purge',
