@@ -59,7 +59,15 @@ class VCModal(Modal, title="Edit Voice Channel"):
         self,
         interaction: discord.Interaction
     ) -> None:
-        owner, _ = interaction.client.get_cog('tempvc').temp_channels[interaction.channel.id]
+        tempvc_cog = interaction.client.get_cog('tempvc')
+        if interaction.channel.id not in tempvc_cog.temp_channels:
+            await interaction.response.send_message(
+                "This channel is not recognized as a temporary voice channel.",
+                ephemeral=True
+            )
+            return
+
+        owner, _ = tempvc_cog.temp_channels[interaction.channel.id]
         if interaction.user.id != owner.id:
             await interaction.response.send_message(
                 "Only the VC owner can edit!",
