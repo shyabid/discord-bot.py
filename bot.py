@@ -47,7 +47,7 @@ EXTENSIONS: List[str] = [
     'cogs.auditlog',
     'cogs.testing'
     'cogs.purge',
-    'cogs.poll',
+    'cogs.vccontrol',
 ]
 
 # Setup logging using discord's prebuilt logging
