@@ -13,7 +13,7 @@ class Reminder(commands.Cog):
 
     @commands.hybrid_group(
         name="reminder", 
-        aliases=["rm", "remind"], 
+        aliases=["rm", "remind","remember"], 
         invoke_without_command=True
     )
     async def reminder(
