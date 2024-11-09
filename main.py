@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 from fastapi import FastAPI
 
-# will make a dhasboard and controller + bot status logs here with either FasAPI or Flask
+# will make a dashboard and controller + bot status logs here with either FasAPI or Flask
 
 bot = Bot()
 
