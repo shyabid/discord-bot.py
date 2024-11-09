@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 import random
 import requests 
-
 class HolyGroup(app_commands.Group):
     
     @app_commands.command(
