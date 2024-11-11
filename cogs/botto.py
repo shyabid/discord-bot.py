@@ -235,7 +235,7 @@ class Botto(commands.Cog):
             await ctx.reply(embed=error_embed)
 
     @grbt.command(name="sync", description="Sync application commands for a specific guild")
-    @commands.is_owner()
+    @commands.has_permissions(administrator=True)
     async def sync(self, ctx: commands.Context, guild_id: str):
         try:
             guild_id = int(guild_id)
