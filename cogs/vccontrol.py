@@ -800,6 +800,15 @@ class Vccontrol(commands.Cog, name="tempvc"):
         self.bot: commands.Bot = bot
         self.temp_channels: Dict[int, Tuple[discord.Member, int]] = {}
         self.bot.add_listener(self.on_voice_state_update)
+        self.temp_channels = {}
+        for guild in bot.guilds:
+            guild_collection = bot.db[str(guild.id)]
+            tempvc_data = guild_collection["temp_channels"].find()
+            for vc_data in tempvc_data:
+                channel = bot.get_channel(vc_data["channel_id"])
+                owner = guild.get_member(vc_data["owner_id"])
+                if channel and owner:
+                    self.temp_channels[channel.id] = (owner, vc_data["control_message_id"])
 
     @commands.hybrid_group(
         name="tempvc",
@@ -937,6 +946,12 @@ class Vccontrol(commands.Cog, name="tempvc"):
 
                 # Add the new channel to temp_channels
                 self.temp_channels[new_channel.id] = (member, control_message.id)
+                guild_collection = self.bot.db[str(member.guild.id)]
+                guild_collection["temp_channels"].insert_one({
+                    "channel_id": new_channel.id,
+                    "owner_id": member.id,
+                    "control_message_id": control_message.id
+                })
 
             # Handle owner leaving
             if before.channel and before.channel.id in self.temp_channels:
@@ -955,12 +970,20 @@ class Vccontrol(commands.Cog, name="tempvc"):
                     else:  # Channel empty
                         await before.channel.delete()
                         del self.temp_channels[before.channel.id]
+                        guild_collection = self.bot.db[str(before.channel.guild.id)]
+                        guild_collection["temp_channels"].delete_one({
+                            "channel_id": before.channel.id
+                        })
 
             # Handle channel cleanup
             if before.channel and before.channel.id in self.temp_channels:
                 if len(before.channel.members) == 0:
                     await before.channel.delete()
                     del self.temp_channels[before.channel.id]
+                    guild_collection = self.bot.db[str(before.channel.guild.id)]
+                    guild_collection["temp_channels"].delete_one({
+                        "channel_id": before.channel.id
+                    })
 
         except Exception as e:
             print(f"Error in voice state update: {e}")

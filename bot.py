@@ -44,8 +44,6 @@ EXTENSIONS: List[str] = [
     'cogs.prefix',
     'cogs.reminder',
     'cogs.audio',
-    'cogs.auditlog',
-    'cogs.testing'
     'cogs.purge',
     'cogs.vccontrol',
 ]
