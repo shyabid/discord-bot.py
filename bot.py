@@ -45,7 +45,7 @@ EXTENSIONS: List[str] = [
     'cogs.reminder',
     'cogs.audio',
     'cogs.purge',
-    'cogs.vccontrol',
+    'cogs.vccontrol'
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -60,7 +60,8 @@ class Bot(commands.AutoShardedBot):
             enable_debug_events=True,
             case_insensitive=True
         )
-        self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
+        self.db_client = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
+        self.db = self.db_client.get_default_database()
         self.start_time = time.time()
         self.session: Optional[aiohttp.ClientSession] = None
         self.command_stats: Counter[str] = Counter()
