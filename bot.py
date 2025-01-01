@@ -45,7 +45,8 @@ EXTENSIONS: List[str] = [
     'cogs.reminder',
     'cogs.audio',
     'cogs.purge',
-    'cogs.vccontrol'
+    'cogs.vccontrol',
+    "cogs.gpt",
 ]
 
 # Setup logging using discord's prebuilt logging
