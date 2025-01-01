@@ -955,7 +955,9 @@ class Vccontrol(commands.Cog, name="tempvc"):
 
             # Handle owner leaving
             if before.channel and before.channel.id in self.temp_channels:
-                if self.temp_channels[before.channel.id][0] == member:  # Owner left
+                if (self.temp_channels[before.channel.id][0] == member and  # Is owner
+                    (not after.channel or  # Left the server
+                     after.channel.id != before.channel.id)):  # Switched channels
                     if len(before.channel.members) > 0:  # Others still in VC
                         # Find the control message in the channel
                         async for message in before.channel.history(limit=1000):
