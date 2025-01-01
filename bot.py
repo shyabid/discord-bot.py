@@ -60,6 +60,7 @@ class Bot(commands.AutoShardedBot):
             enable_debug_events=True,
             case_insensitive=True
         )
+        self.openai_key: str = os.getenv('OPENAI_KEY')
         self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
         self.start_time = time.time()
         self.session: Optional[aiohttp.ClientSession] = None
