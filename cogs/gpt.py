@@ -1,5 +1,6 @@
 from discord.ext import commands
 import discord
+from discord import app_commands
 from openai import OpenAI
 
 class Gpt(commands.Cog):
@@ -12,13 +13,14 @@ class Gpt(commands.Cog):
         aliases=["ai", "ask"],
         description="Generate text using GPT-4o-mini",
     )
+    @app_commands.describe(prompt="The prompt to generate text from")
     async def gpt(
         self, 
-        ctx, 
+        ctx: commands.Context, 
         *, 
         prompt: str
     ) -> None:
-        with ctx.typing():
+        async with ctx.typing():
             completion = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 store=True,
@@ -28,7 +30,7 @@ class Gpt(commands.Cog):
                 ],
                 max_completion_tokens=1000
             )
-            await ctx.replt(completion.choices[0].message.content)
+            await ctx.reply(completion.choices[0].message.content)
         
 async def setup(bot):
     await bot.add_cog(Gpt(bot))
