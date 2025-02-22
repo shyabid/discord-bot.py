@@ -47,7 +47,9 @@ EXTENSIONS: List[str] = [
     'cogs.purge',
     'cogs.vccontrol',
     'cogs.gpt',
-    'cogs.chat'
+    # 'cogs.chat',
+    'cogs.owner',
+    # 'cogs.leveling'
     
 ]
 
@@ -65,6 +67,7 @@ class Bot(commands.AutoShardedBot):
         )
         self.openai_key: str = os.getenv('OPENAI_KEY')
         self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
+        self.owner_id = os.getenv('OWNER_ID')
         self.start_time = time.time()
         self.session: Optional[aiohttp.ClientSession] = None
         self.command_stats: Counter[str] = Counter()
