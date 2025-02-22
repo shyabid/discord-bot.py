@@ -370,10 +370,12 @@ class Misc(commands.Cog):
         ?define tough
         """
         await self.define(ctx, word=word)
+    
+    
     @misc.command(name="lyrics", description="Get lyrics for a song")
     async def lyrics(self, ctx: commands.Context, *, query: str):
         """
-        Get lyrics for a song using an API.
+        Get lyrics for a song using the PopCat API.
 
         **Usage:**
         ?misc lyrics <song name>
@@ -386,7 +388,8 @@ class Misc(commands.Cog):
         ?misc lyrics Shape of You
         /misc lyrics Shape of You
         """
-        api_url = f"https://some-lyrics-api.com/v1/lyrics?q={query}"
+        formatted_query = query.replace(" ", "+")
+        api_url = f"https://api.popcat.xyz/lyrics?song={formatted_query}"
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -396,35 +399,29 @@ class Misc(commands.Cog):
                     else:
                         await ctx.reply(f"Error fetching lyrics. Status code: {response.status}")
                         return
-        except aiohttp.ClientError as e:
-            await ctx.reply(f"Error connecting to the lyrics API: {str(e)}")
-            return
         except Exception as e:
-            await ctx.reply(f"An unexpected error occurred: {str(e)}")
-            return
-
-        if not data or "error" in data:
-            await ctx.reply(f"No lyrics found for '{query}'. Please try a different search.")
+            await ctx.reply(f"An error occurred: {str(e)}")
             return
 
         try:
             title = data.get("title", "Unknown Title")
-            author = data.get("author", "Unknown Author")
-            lyrics = data.get("lyrics", "Lyrics not available")
-            thumbnail_url = data.get("thumbnail", {}).get("genius", "")
+            artist = data.get("artist", "Unknown Artist")
+            lyrics = f"`Artist - {artist}` \n\n" + data.get("lyrics", "Lyrics not available")
+            image = data.get("image")
 
             if not lyrics:
-                await ctx.reply(f"No lyrics found for '{query}'. The song might not have lyrics.")
+                await ctx.reply(f"No lyrics found for '{query}'")
                 return
 
             embed = discord.Embed(
-                title=f"{title} - {author}",
-                description=lyrics[:2048],  # Discord has a 2048 character limit for embed description
+                title=f"{title}",
+                description=lyrics[:2048],
                 color=discord.Color.dark_grey()
             )
-
-            if thumbnail_url:
-                embed.set_thumbnail(url=thumbnail_url)
+            
+            
+            if image:
+                embed.set_image(url=image)
 
             if len(lyrics) > 2048:
                 embed.set_footer(text="Lyrics were truncated due to length.")

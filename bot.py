@@ -43,10 +43,12 @@ EXTENSIONS: List[str] = [
     'cogs.botto',
     'cogs.prefix',
     'cogs.reminder',
-    'cogs.audio',
+    # 'cogs.audio',
     'cogs.purge',
     'cogs.vccontrol',
-    "cogs.gpt",
+    'cogs.gpt',
+    'cogs.chat'
+    
 ]
 
 # Setup logging using discord's prebuilt logging
@@ -204,10 +206,10 @@ class Bot(commands.AutoShardedBot):
 
         elif isinstance(error, commands.BadLiteralArgument):
             await context.reply(f"Invalid option. Allowed values are: {', '.join(map(str, error.literals))}")
-            
+        
         else:
             try:
-                owner = await self.fetch_user(876869802948452372)
+                owner = await self.fetch_user(1076064221210628118)
                 
                 embed = discord.Embed(
                     title="Bot Error",
