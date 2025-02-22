@@ -90,7 +90,7 @@ class Chat(commands.Cog):
         async with message.channel.typing():
             response = await asyncio.to_thread(
                 self.client.chat.completions.create,
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[{"role": "system", "content": prompt}],
                 temperature=0.7,
             )
