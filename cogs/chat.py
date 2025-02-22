@@ -4,23 +4,57 @@ import os
 import json
 from openai import OpenAI
 import asyncio
+from typing import Optional
 
 class Chat(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
         self.CHARACTER_DESCRIPTION = os.getenv("CHARACTER_DESCRIPTION")
+        # Add chat-only channel tracking
+        self.chat_channels = {}
+
+    @commands.hybrid_command(
+        name="chatonly",
+        description="Set a channel where the bot responds to all messages"
+    )
+    @commands.has_permissions(administrator=True)
+    async def chatonly(
+        self, 
+        ctx: commands.Context, 
+        channel: Optional[discord.TextChannel] = None
+    ) -> None:
+        """
+        Set or remove a chat-only channel where the bot responds to all messages.
+
+        Parameters:
+        -----------
+        channel: Optional[discord.TextChannel]
+            The channel to set as chat-only. Leave empty to disable.
+        """
+        guild_id = str(ctx.guild.id)
+        
+        if channel:
+            self.chat_channels[guild_id] = channel.id
+            await ctx.send(f"Chat-only mode enabled in {channel.mention}")
+        else:
+            self.chat_channels.pop(guild_id, None)
+            await ctx.send("Chat-only mode disabled")
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Ignore bot's own messages
         if message.author == self.bot.user:
             return
 
-        # Determine if the message should trigger a response
-        trigger = False
-        if self.bot.user.mention in message.content and len(message.content.strip()) > len(self.bot.user.mention):
-            trigger = True
+        # Check if message is in a chat-only channel
+        chat_channel_id = self.chat_channels.get(str(message.guild.id))
+        
+        trigger = (
+            (chat_channel_id and message.channel.id == chat_channel_id) or
+            (self.bot.user.mention in message.content and 
+             len(message.content.strip()) > len(self.bot.user.mention))
+        )
+        
         if message.reference:
             try:
                 ref = await message.channel.fetch_message(message.reference.message_id)
@@ -28,6 +62,7 @@ class Chat(commands.Cog):
                     trigger = True
             except Exception:
                 pass
+                
         if not trigger:
             return
 
@@ -67,5 +102,6 @@ class Chat(commands.Cog):
                 await message.reply(reply_content)
             except json.JSONDecodeError:
                 await message.reply(reply_text)
+
 async def setup(bot):
     await bot.add_cog(Chat(bot))
