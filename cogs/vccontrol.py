@@ -550,13 +550,17 @@ class VCControlView(View):
             )
             return
 
-        overwrites: Dict[
-            Union[discord.Role, discord.Member],
-            discord.PermissionOverwrite
-        ] = {
+        # Updated permissions for public mode - allow chat but restrict uploads
+        overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(
                 connect=True,
-                view_channel=True
+                view_channel=True,
+                send_messages=True,           # Allow messages
+                read_message_history=True,    # Allow reading chat history
+                add_reactions=True,           # Allow reactions
+                use_external_emojis=True,     # Allow using emojis
+                attach_files=False,           # Restrict file uploads
+                embed_links=False            # Restrict embedding links
             )
         }
         await interaction.channel.edit(overwrites=overwrites)
@@ -597,28 +601,40 @@ class VCControlView(View):
             )
             return
 
-        overwrites: Dict[
-            Union[discord.Role, discord.Member],
-            discord.PermissionOverwrite
-        ] = {
+        # Collect current VC members
+        current_members = interaction.user.voice.channel.members
+
+        # Set up base permissions
+        overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(
                 connect=False,
                 view_channel=True
             )
         }
+
+        # Grant permissions to current members
+        for member in current_members:
+            overwrites[member] = discord.PermissionOverwrite(
+                connect=True,
+                view_channel=True,
+                send_messages=True,
+                attach_files=True,
+                embed_links=True,
+                read_message_history=True,
+                use_external_emojis=True,
+                add_reactions=True
+            )
+
         await interaction.channel.edit(overwrites=overwrites)
         
+        # Update button states
         self.public_button.disabled = False
         self.private_button.disabled = True
         self.hidden_button.disabled = False
         self.visibility_state = "private"
         
-        message: discord.Message = (
-            await interaction.channel.fetch_message(
-                self.control_message_id
-            )
-        )
-        embed: discord.Embed = message.embeds[0]
+        message = await interaction.channel.fetch_message(self.control_message_id)
+        embed = message.embeds[0]
         
         embed.set_field_at(
             2,
@@ -629,7 +645,7 @@ class VCControlView(View):
         await message.edit(embed=embed, view=self)
         
         await interaction.response.send_message(
-            "Channel is now private!",
+            "Channel is now private! Current members have been granted chat permissions.",
             ephemeral=True
         )
 
@@ -644,28 +660,40 @@ class VCControlView(View):
             )
             return
 
-        overwrites: Dict[
-            Union[discord.Role, discord.Member],
-            discord.PermissionOverwrite
-        ] = {
+        # Collect current VC members
+        current_members = interaction.user.voice.channel.members
+
+        # Set up base permissions
+        overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(
                 connect=False,
                 view_channel=False
             )
         }
+
+        # Grant permissions to current members
+        for member in current_members:
+            overwrites[member] = discord.PermissionOverwrite(
+                connect=True,
+                view_channel=True,
+                send_messages=True,
+                attach_files=True,
+                embed_links=True,
+                read_message_history=True,
+                use_external_emojis=True,
+                add_reactions=True
+            )
+
         await interaction.channel.edit(overwrites=overwrites)
         
+        # Update button states
         self.public_button.disabled = False
         self.private_button.disabled = False
         self.hidden_button.disabled = True
         self.visibility_state = "hidden"
         
-        message: discord.Message = (
-            await interaction.channel.fetch_message(
-                self.control_message_id
-            )
-        )
-        embed: discord.Embed = message.embeds[0]
+        message = await interaction.channel.fetch_message(self.control_message_id)
+        embed = message.embeds[0]
         
         embed.set_field_at(
             2,
@@ -676,7 +704,7 @@ class VCControlView(View):
         await message.edit(embed=embed, view=self)
         
         await interaction.response.send_message(
-            "Channel is now hidden!",
+            "Channel is now hidden! Current members have been granted chat permissions.",
             ephemeral=True
         )
 

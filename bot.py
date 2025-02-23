@@ -49,7 +49,8 @@ EXTENSIONS: List[str] = [
     'cogs.gpt',
     # 'cogs.chat',
     'cogs.owner',
-    # 'cogs.leveling'
+    'cogs.leveling',
+    'cogs.economy'
     
 ]
 
@@ -173,6 +174,8 @@ class Bot(commands.AutoShardedBot):
         context: commands.Context, 
         error: commands.CommandError
     ) -> None:
+        if hasattr(context.command, 'on_error'):
+            return
 
         if isinstance(error, commands.CommandNotFound):
             self.logger.warning(f"CommandNotFound error: {error}")
