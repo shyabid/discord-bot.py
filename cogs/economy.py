@@ -498,10 +498,8 @@ class Economy(commands.Cog):
             channel = ctx.guild.get_channel(shop_data["channel_id"])
             if channel:
                 message = await channel.fetch_message(shop_data["message_id"])
-                await message.edit(
-                    embed=await self.create_shop_embed(ctx.guild.id),
-                    view=ShopView(shop_data, self)
-                )
+                embeds = await self.create_shop_embed(ctx.guild.id)
+                await message.edit(embeds=embeds, view=ShopView(shop_data, self))
         
         await ctx.reply(f"Added item {name} to the shop!")
 
@@ -559,10 +557,8 @@ class Economy(commands.Cog):
             channel = ctx.guild.get_channel(shop_data["channel_id"])
             if channel:
                 message = await channel.fetch_message(shop_data["message_id"])
-                await message.edit(
-                    embed=await self.create_shop_embed(ctx.guild.id),
-                    view=ShopView(shop_data, self)
-                )
+                embeds = await self.create_shop_embed(ctx.guild.id)
+                await message.edit(embeds=embeds, view=ShopView(shop_data, self))
         
         await ctx.reply(f"Added role {role.name} to the shop!")
 
