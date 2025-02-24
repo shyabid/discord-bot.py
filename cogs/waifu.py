@@ -49,12 +49,12 @@ def get_rarity_color(rarity: str) -> tuple:
 def get_rarity_percentage(rarity: str) -> float:
     """Get rarity percentage for display"""
     percentages = {
-        'SS': 0.01,
-        'S': 0.1,
-        'A': 1,
-        'B': 10, 
-        'C': 30,
-        'D': 58.98
+        'SS': 0.007,
+        'S': 0.07,
+        'A': 0.7,
+        'B': 7, 
+        'C': 20,
+        'D': 100
          
     }
     return percentages.get(rarity, 0.0)
@@ -242,12 +242,12 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
 def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     """Calculate card value based on rarity and popularity rank"""
     value_ranges = {
-        'D': (1, 4),      # $1-4
-        'C': (4, 15),     # $4-15
-        'B': (15, 50),    # $15-50
-        'A': (50, 200),   # $50-200
-        'S': (400, 2000), # $400-2,000
-        'SS': (2000, 6000)# $2,000-6,000
+        'D': (1, 4),        # $1-4
+        'C': (4, 15),       # $4-15
+        'B': (15, 50),      # $15-50
+        'A': (50, 200),     # $50-200
+        'S': (400, 2000),   # $400-2,000
+        'SS': (2000, 6000)  # $2,000-6,000
     }
     
     if rarity not in value_ranges:
@@ -285,12 +285,12 @@ class Waifu(commands.Cog):
     
     Rarity Probabilities:
     Normal Roll ($3):
-        SS: 0.01%, S: 0.1%, A: 1%, B: 10%, C: 30%, D: 58.89%
+        SS: 0.007%, S: 0.07%, A: 0.7%, B: 7%, C: 20%, D: 100%
     
     Targeted Rolls:
-        C-Tier ($10): SS: 0.04%, S: 0.4%, A: 4%, B: 40%, C: 55.56%
-        B-Tier ($30): SS: 0.1%, S: 1%, A: 10%, B: 88.9%
-        A-Tier ($100): SS: 1%, S: 10%, A: 89%
+        C-Tier ($20): SS: 0.02%, S: 0.2%, A: 2%, B: 20%, C: 100%
+        B-Tier ($50): SS: 0.06%, S: 0.6%, A: 10%, B: 100%
+        A-Tier ($150): SS: 0.4%, S: 4%, A: 100%
     """
     
     def __init__(self, bot):
@@ -299,9 +299,9 @@ class Waifu(commands.Cog):
         # Adjust cost mapping if desired:
         self.rarity_costs = {
             None: 3,   # normal roll costs $3
-            'C': 10,   # roll for C costs $10
-            'B': 30,   # roll for B costs $30
-            'A': 100   # roll for A costs $100
+            'C': 20,   # roll for C costs $10
+            'B': 50,   # roll for B costs $30
+            'A': 150   # roll for A costs $100
         }
         # Available tiers for normal roll include all:
         self.available_rarities = ['SS','S','A','B','C','D']
@@ -313,20 +313,20 @@ class Waifu(commands.Cog):
         """Returns a rarity string based on cost type using preset weights"""
         probabilities = {
             'normal': {
-                'tiers': ['SS', 'S', 'A', 'B', 'C', 'D'],
-                'weights': [0.01, 0.1, 1, 10, 30, 100]
+            'tiers': ['SS', 'S', 'A', 'B', 'C', 'D'],
+            'weights': [0.007, 0.07, 0.7, 7, 20, 100]
             },
             'C': {
-                'tiers': ['SS', 'S', 'A', 'B', 'C'],
-                'weights': [0.04, 0.4, 4, 40, 100]
+            'tiers': ['SS', 'S', 'A', 'B', 'C'],
+            'weights': [0.02, 0.2, 2, 20, 100]
             },
             'B': {
-                'tiers': ['SS', 'S', 'A', 'B'],
-                'weights': [0.1, 1, 10, 100]
+            'tiers': ['SS', 'S', 'A', 'B'],
+            'weights': [0.06, 0.6, 10, 100]
             },
             'A': {
-                'tiers': ['SS', 'S', 'A'],
-                'weights': [1, 10, 100]
+            'tiers': ['SS', 'S', 'A'],
+            'weights': [0.4, 4, 100]
             }
         }
         if cost_type is None:
@@ -401,16 +401,12 @@ class Waifu(commands.Cog):
         
         Rarity Probabilities:
         Normal Roll ($3):
-            SS: 0.01%, S: 0.1%, A: 1%, B: 10%, C: 30%, D: 58.89%
+            SS: 0.007%, S: 0.07%, A: 0.7%, B: 7%, C: 20%, D: 100%
         
         Targeted Rolls:
-            C-Tier ($10): SS: 0.04%, S: 0.4%, A: 4%, B: 40%, C: 55.56%
-            B-Tier ($30): SS: 0.1%, S: 1%, A: 10%, B: 88.9%
-            A-Tier ($100): SS: 1%, S: 10%, A: 89%
-    
-        Roll for a random waifu card. Optionally specify minimum rarity.
-        Costs: A=100$, B=30$, C=10$
-        Default roll (any rarity) costs $3
+            C-Tier ($20): SS: 0.02%, S: 0.2%, A: 2%, B: 20%, C: 100%
+            B-Tier ($50): SS: 0.06%, S: 0.6%, A: 10%, B: 100%
+            A-Tier ($150): SS: 0.4%, S: 4%, A: 100%
         """
         # Check if user is already drawing
         if ctx.author.id in self.active_draws:
