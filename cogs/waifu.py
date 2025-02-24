@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import math
 import random
 import time
 import json
@@ -231,6 +232,57 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
     output.seek(0)
     return output
 
+def calculate_card_value(rarity: str, popularity_rank: int) -> int:
+    """Calculate card value based on rarity and popularity rank"""
+    value_ranges = {
+        'D': (1, 4),      # $1-4
+        'C': (4, 15),     # $4-15
+        'B': (15, 50),    # $15-50
+        'A': (50, 200),   # $50-200
+        'S': (400, 2000), # $400-2,000
+        'SS': (2000, 6000)# $2,000-6,000
+    }
+    
+    if rarity not in value_ranges:
+        return 1
+    
+    min_value, max_value = value_ranges[rarity]
+    
+    if not popularity_rank:
+        return min_value
+        
+    # Scale value based on popularity rank (lower rank = higher value)
+    # Using log scale to smooth out the differences
+    import math
+    max_rank = 2500  # Approximate max rank in database
+    rank_factor = 1 - (math.log(popularity_rank + 1) / math.log(max_rank + 1))
+    value = min_value + (max_value - min_value) * rank_factor
+    
+    return round(value)
+
+def calculate_resale_value(rarity: str, popularity_rank: int) -> int:
+    """Calculate resale value based on draw cost and rank"""
+    draw_costs = {
+        'SS': 100,  # Using A-tier cost since SS can only be obtained through luck
+        'S': 100,   # Using A-tier cost since S can only be obtained through luck
+        'A': 100,
+        'B': 30,
+        'C': 10,
+        'D': 3
+    }
+    
+    base_cost = draw_costs.get(rarity, 3)
+    
+    if not popularity_rank:
+        return int(base_cost * 0.6)  # Minimum 60% for unknown rank
+        
+    # Scale resale percentage based on rank (90% for rank 1, down to 60% for higher ranks)
+    max_rank = 2500  # Approximate max rank in database
+    rank_factor = 1 - (math.log(popularity_rank + 1) / math.log(max_rank + 1))
+    resale_percent = 0.6 + (0.3 * rank_factor)  # 0.6 to 0.9 range
+    
+    return round(base_cost * resale_percent)
+
 class Waifu(commands.Cog):
     """
     Waifu Card Collection System
@@ -416,8 +468,15 @@ class Waifu(commands.Cog):
             'D': f"{ctx.author.mention} got a **D-TIER** card.\n"
         }
         
+        # Calculate card value
+        card_value = calculate_card_value(waifu['rarity_tier'], waifu.get('popularity_rank'))
+        
         congrats = congrats_messages.get(waifu['rarity_tier'], '')
-        message = f"{congrats}You rolled **{waifu['name']}** ({waifu['rarity_tier']}) for ${cost}!\nSerial: `{serial}`"
+        message = (
+            f"{congrats}You rolled **{waifu['name']}** ({waifu['rarity_tier']}) for ${cost}!\n"
+            f"Serial: `{serial}`\n"
+            f"Card Value: **${card_value:,}**"
+        )
         
         # Send card
         file = discord.File(fp=card_image, filename=f"waifu_card_{serial}.png")
@@ -480,6 +539,10 @@ class Waifu(commands.Cog):
             embed.add_field(name="Owner", value=owner_name, inline=True)
             embed.add_field(name="Rarity", value=card['rarity'], inline=True)
             embed.add_field(name="Serial", value=f"`{card['serial_number']}`", inline=True)
+            
+            # Add value field
+            value = calculate_card_value(card['rarity'], card['rank'])
+            embed.add_field(name="Value", value=f"${value:,}", inline=True)
 
             # Save image to file-like object and set as embed image
             card_image.seek(0)
@@ -573,18 +636,57 @@ class Waifu(commands.Cog):
             key=lambda item: (rarity_order.get(item[0][2], 99), item[0][3] if item[0][3] is not None else 999)
         )
         
+        # Calculate total values
+        tier_values = {tier: 0 for tier in self.available_rarities}
+        total_value = 0
+        
         # Build message lines
         lines = []
         current_rarity = None
         for (waifu_id, name, rarity, rank), serials in sorted_groups:
             if rarity != current_rarity:
+                if current_rarity:  # Add tier total if not first tier
+                    lines.append(f"**Tier {current_rarity} Total: ${tier_values[current_rarity]:,}**\n")
                 lines.append(f"**Tier {rarity}:**")
                 current_rarity = rarity
+
+            # Get locked status and calculate values for each card
+            locked_cards = []
+            unlocked_cards = []
+            tier_value = 0
+            
+            for serial in serials:
+                card = self.collection.find_one({"serial_number": serial})
+                card_value = calculate_card_value(rarity, rank)
+                tier_value += card_value
+                tier_values[rarity] += card_value
+                total_value += card_value
+                
+                if card and card.get("locked", False):
+                    locked_cards.append(f"{serial}(${card_value:,})")
+                else:
+                    unlocked_cards.append(f"{serial}(${card_value:,})")
+
             rank_str = f"**#{rank}** " if rank is not None else ""
-            line = f"{rank_str}{name} [`{', '.join(serials)}`]"
+            
+            # Format cards with lock indicators and values
+            cards_str = ""
+            if unlocked_cards:
+                cards_str += f"`{', '.join(unlocked_cards)}`"
+            if locked_cards:
+                if cards_str:
+                    cards_str += " "
+                cards_str += f"[`{', '.join(locked_cards)}`🔒]"
+
+            line = f"{rank_str}{name} {cards_str}"
             if len(serials) > 1:
-                line += f" ({len(serials)})"
+                line += f" ({len(serials)}) - Total: ${tier_value:,}"
             lines.append(line)
+        
+        # Add final tier total and grand total
+        if current_rarity:
+            lines.append(f"**Tier {current_rarity} Total: ${tier_values[current_rarity]:,}**\n")
+        lines.append(f"**Total Inventory Value: ${total_value:,}**")
         
         # Paginate lines; 20 lines per embed
         pages = [lines[i:i+20] for i in range(0, len(lines), 20)]
@@ -605,70 +707,83 @@ class Waifu(commands.Cog):
     async def sell(self, ctx: commands.Context, arg: str) -> None:
         """
         Sell a card by card code or sell all cards in a given tier.
-        If arg is one of the tiers (e.g., SS), sells all unsold, unlocked cards of that tier.
-        Otherwise, treats arg as a card code.
+        Resale value is 60-90% of original value, based on popularity rank.
+        Higher ranked cards (lower rank number) sell for a better percentage.
         """
         import asyncio
         economy_cog = self.bot.get_cog('Economy')
         if not economy_cog:
             return await ctx.reply("Economy system is not available!")
-        # Get user's cards
+            
         cards = await asyncio.to_thread(lambda: list(self.collection.find({"owner_id": ctx.author.id})))
         if not cards:
             return await ctx.reply("You don't have any cards to sell.")
+            
         if arg.upper() in self.available_rarities:
             # Sell all cards of the given tier
             tier = arg.upper()
             sell_cards = [card for card in cards if card.get("rarity", "") == tier and not card.get("locked", False)]
             if not sell_cards:
                 return await ctx.reply(f"No sellable cards found in tier {tier}.")
+            
             total = 0
+            details = []
             for card in sell_cards:
-                # Determine sale value (adjust as desired)
-                if tier == "A":
-                    sale_value = 50
-                elif tier == "B":
-                    sale_value = 20
-                elif tier == "C":
-                    sale_value = 5
-                elif tier == "D":
-                    sale_value = 1
-                elif tier == "S":
-                    sale_value = 500
-                elif tier == "SS": 
-                    sale_value = 5000
-                else: 
-                    sale_value = 1
+                original_value = calculate_card_value(tier, card.get("rank"))
+                sale_value = calculate_resale_value(tier, card.get("rank"))
+                percentage = (sale_value / original_value) * 100
+                
+                details.append(f"`{card['serial_number']}` - ${original_value:,} → ${sale_value:,} ({percentage:.1f}%)")
                 total += sale_value
                 self.collection.delete_one({"_id": card["_id"]})
+            
             await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, total)
-            await ctx.reply(f"Sold {len(sell_cards)} cards from tier {tier} for ${total}.")
+            
+            # Create detailed embed for bulk sale
+            embed = discord.Embed(
+                title="Bulk Sale Complete",
+                description=f"Sold {len(sell_cards)} cards from tier {tier}",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Total Received", value=f"${total:,}", inline=False)
+            
+            # Split details into chunks if needed
+            chunks = [details[i:i+10] for i in range(0, len(details), 10)]
+            for i, chunk in range(chunks):
+                embed.add_field(
+                    name=f"Sale Details {i+1}" if len(chunks) > 1 else "Sale Details",
+                    value="\n".join(chunk),
+                    inline=False
+                )
+            
+            await ctx.reply(embed=embed)
+            
         else:
-            # Sell a single card by card code
+            # Sell a single card
             card_code = arg
             card = self.collection.find_one({"owner_id": ctx.author.id, "serial_number": card_code})
             if not card:
                 return await ctx.reply("Card not found or not owned by you.")
             if card.get("locked", False):
                 return await ctx.reply("This card is locked and cannot be sold.")
-            tier = card.get("rarity", "")
-            if tier == "A":
-                sale_value = 50
-            elif tier == "B":
-                sale_value = 20
-            elif tier == "C":
-                sale_value = 5
-            elif tier == "D":
-                sale_value = 1
-            elif tier == "S":
-                sale_value = 500
-            elif tier == "SS": 
-                sale_value = 5000
-            else: 
-                sale_value = 1
+                
+            original_value = calculate_card_value(card.get("rarity", ""), card.get("rank"))
+            sale_value = calculate_resale_value(card.get("rarity", ""), card.get("rank"))
+            percentage = (sale_value / original_value) * 100
+            
             self.collection.delete_one({"_id": card["_id"]})
             await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, sale_value)
-            await ctx.reply(f"Sold card {card_code} for ${sale_value}.")
+            
+            embed = discord.Embed(
+                title="Sale Complete",
+                description=f"Sold card `{card_code}`",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Original Value", value=f"${original_value:,}", inline=True)
+            embed.add_field(name="Sale Value", value=f"${sale_value:,}", inline=True)
+            embed.add_field(name="Return Rate", value=f"{percentage:.1f}%", inline=True)
+            
+            await ctx.reply(embed=embed)
 
     @commands.command(name="lock")
     async def lock(self, ctx: commands.Context, card_code: str) -> None:
@@ -681,6 +796,18 @@ class Waifu(commands.Cog):
             await ctx.reply(f"Card {card_code} has been locked.")
         else:
             await ctx.reply("Card not found or already locked.")
+
+    @commands.command(name="unlock")
+    async def unlock(self, ctx: commands.Context, card_code: str) -> None:
+        """Unlock a previously locked card."""
+        result = self.collection.update_one(
+            {"owner_id": ctx.author.id, "serial_number": card_code},
+            {"$set": {"locked": False}}
+        )
+        if result.modified_count:
+            await ctx.reply(f"Card {card_code} has been unlocked.")
+        else:
+            await ctx.reply("Card not found or already unlocked.")
 
     @commands.hybrid_group(name="trade")
     async def trade(self, ctx: commands.Context) -> None:
@@ -923,3 +1050,4 @@ class Waifu(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Waifu(bot))
+
