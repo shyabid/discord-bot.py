@@ -626,15 +626,19 @@ class Waifu(commands.Cog):
             for card in sell_cards:
                 # Determine sale value (adjust as desired)
                 if tier == "A":
-                    sale_value = 150
+                    sale_value = 50
                 elif tier == "B":
-                    sale_value = 30
+                    sale_value = 20
                 elif tier == "C":
-                    sale_value = 10
+                    sale_value = 5
                 elif tier == "D":
-                    sale_value = 2
-                else:
-                    sale_value = 10
+                    sale_value = 1
+                elif tier == "S":
+                    sale_value = 500
+                elif tier == "SS": 
+                    sale_value = 5000
+                else: 
+                    sale_value = 1
                 total += sale_value
                 self.collection.delete_one({"_id": card["_id"]})
             await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, total)
@@ -649,15 +653,19 @@ class Waifu(commands.Cog):
                 return await ctx.reply("This card is locked and cannot be sold.")
             tier = card.get("rarity", "")
             if tier == "A":
-                sale_value = 150
-            elif tier == "B":
                 sale_value = 50
-            elif tier == "C":
+            elif tier == "B":
                 sale_value = 20
-            elif tier == "D":
+            elif tier == "C":
                 sale_value = 5
-            else:
-                sale_value = 10
+            elif tier == "D":
+                sale_value = 1
+            elif tier == "S":
+                sale_value = 500
+            elif tier == "SS": 
+                sale_value = 5000
+            else: 
+                sale_value = 1
             self.collection.delete_one({"_id": card["_id"]})
             await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, sale_value)
             await ctx.reply(f"Sold card {card_code} for ${sale_value}.")
