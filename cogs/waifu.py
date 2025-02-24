@@ -79,6 +79,23 @@ def get_tier_frame(tier: str) -> Image.Image:
         
         return frame
 
+def load_font(font_path: str, size: int, default_size: int = None) -> ImageFont.FreeTypeFont:
+    """Load a font with fallbacks"""
+    try:
+        # Try relative path first
+        return ImageFont.truetype(f"fonts/{font_path}", size)
+    except:
+        try:
+            # Try system path
+            return ImageFont.truetype(font_path, size)
+        except:
+            try:
+                # Try DejaVu as Linux fallback
+                return ImageFont.truetype("DejaVuSans.ttf", size if default_size is None else default_size)
+            except:
+                # Last resort: default font
+                return ImageFont.load_default()
+
 def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> BytesIO:
     """Create a waifu card image"""
     # Download and open image
@@ -115,26 +132,14 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
     # Create draw object
     draw = ImageDraw.Draw(img)
     
-    # Initialize fonts with defaults first
-    name_font = ImageFont.load_default()
-    name_font_bold = ImageFont.load_default()
-    info_font = ImageFont.load_default()
-    owner_font = ImageFont.load_default()
-    rarity_font = ImageFont.load_default()
-    rank_font = ImageFont.load_default()
-    percent_font = ImageFont.load_default()
-    
-    # Try to load better fonts if available
-    try:
-        name_font = ImageFont.truetype("arial.ttf", 56)
-        name_font_bold = ImageFont.truetype("arialbd.ttf", 56)
-        info_font = ImageFont.truetype("arial.ttf", 32)
-        owner_font = ImageFont.truetype("arial.ttf", 20)
-        rarity_font = ImageFont.truetype("arialbd.ttf", 120)
-        rank_font = ImageFont.truetype("arial.ttf", 48)
-        percent_font = ImageFont.truetype("arialbd.ttf", 42)
-    except Exception as e:
-        print(f"Failed to load custom fonts, using defaults: {e}")
+    # Initialize fonts with better fallback system
+    name_font = load_font("arial.ttf", 56, 24)
+    name_font_bold = load_font("arialbd.ttf", 56, 24)
+    info_font = load_font("arial.ttf", 32, 16)
+    owner_font = load_font("arial.ttf", 20, 12)
+    rarity_font = load_font("arialbd.ttf", 120, 36)
+    rank_font = load_font("arial.ttf", 48, 20)
+    percent_font = load_font("arialbd.ttf", 42, 18)
     
     # Add gradient overlay (dark bottom to transparent top)
     gradient = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
