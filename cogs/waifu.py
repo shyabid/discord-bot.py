@@ -335,6 +335,7 @@ class Waifu(commands.Cog):
         self.available_rarities = ['SS','S','A','B','C','D']
         self.collection = self.bot.db["waifu"]["cards"]
         self.serial_collection = self.bot.db["waifu"]["serials"]
+        self.active_draws = set()  # Track user IDs that are currently drawing a card
 
     def roll_rarity(self, cost_type: Optional[str] = None) -> str:
         """Returns a rarity string based on cost type using preset weights"""
@@ -398,7 +399,7 @@ class Waifu(commands.Cog):
             print(f"Error generating serial: {e}")
             return f"{rarity}-000001"
     
-    async def save_card(self, user_id: int, waifu: dict, serial: str):
+    def save_card(self, user_id: int, waifu: dict, serial: str):
         """Save card to waifu collection"""
         try:
             self.collection.insert_one({
@@ -439,66 +440,75 @@ class Waifu(commands.Cog):
         Costs: A=100$, B=30$, C=10$
         Default roll (any rarity) costs $3
         """
-        await ctx.defer()  # Defer the response immediately
+        # Check if user is already drawing
+        if ctx.author.id in self.active_draws:
+            return await ctx.reply("You already have an active draw. Please try again after it finishes.")
+        self.active_draws.add(ctx.author.id)
         
-        # Validate and normalize rarity input
-        if rarity:
-            rarity = rarity.upper()
-            if rarity not in self.available_rarities:
-                await ctx.reply("Invalid rarity! Use A, B, or C")
-                return
+        # Instantly reply with a placeholder message
+        placeholder = await ctx.reply("Drawing a card...")
+        
+        try:
+            # Validate and normalize rarity input
+            if rarity:
+                rarity = rarity.upper()
+                if rarity not in self.available_rarities:
+                    await placeholder.edit(content="Invalid rarity! Use A, B, or C")
+                    return
 
-        # Check if user has enough money
-        cost = self.rarity_costs[rarity]
-        economy_cog = self.bot.get_cog('Economy')
-        if not economy_cog:
-            await ctx.reply("Economy system is not available!")
-            return
+            # Check if user has enough money
+            cost = self.rarity_costs[rarity]
+            economy_cog = self.bot.get_cog('Economy')
+            if not economy_cog:
+                await placeholder.edit(content="Economy system is not available!")
+                return
+                
+            balance = await economy_cog.get_user_balance(ctx.guild.id, ctx.author.id)
+            if balance < cost:
+                await placeholder.edit(content=f"You need ${cost} to roll for this rarity! (Balance: ${balance:.2f})")
+                return
+                
+            # Get random waifu
+            waifu, serial = await self.get_random_waifu(rarity)
+            if not waifu:
+                await placeholder.edit(content="No waifus available for this rarity!")
+                return
             
-        balance = await economy_cog.get_user_balance(ctx.guild.id, ctx.author.id)
-        if balance < cost:
-            await ctx.reply(f"You need ${cost} to roll for this rarity! (Balance: ${balance:.2f})")
-            return
+            # Add some suspense with delay
+            await asyncio.sleep(2)
+                
+            # Create card image
+            card_image = await asyncio.to_thread(create_waifu_card, waifu, serial, ctx.author.name)
             
-        # Get random waifu
-        waifu, serial = await self.get_random_waifu(rarity)
-        if not waifu:
-            await ctx.reply("No waifus available for this rarity!")
-            return
-        
-        # Add some suspense with delay
-        await asyncio.sleep(2)
+            # Deduct cost and save card to user's collection
+            await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, -cost)
+            await asyncio.to_thread(self.save_card, ctx.author.id, waifu, serial)
             
-        # Create card image
-        card_image = create_waifu_card(waifu, serial, ctx.author.name)
-        
-        # Deduct cost and save card to user's collection
-        await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, -cost)
-        await self.save_card(ctx.author.id, waifu, serial)
-        
-        # Create congratulations message based on rarity
-        congrats_messages = {
-            'SS': f"🎉🎉🎉 INCREDIBLE! {ctx.author.mention} just pulled an **SS-TIER** card! 🎉🎉🎉\n",
-            'S': f"🎉🎉 AMAZING! {ctx.author.mention} pulled an **S-TIER** card! 🎉🎉\n",
-            'A': f"🎉 Wow! {ctx.author.mention} got an **A-TIER** card! 🎉\n",
-            'B': f"Nice! {ctx.author.mention} found a **B-TIER** card!\n",
-            'C': f"{ctx.author.mention} drew a **C-TIER** card.\n",
-            'D': f"{ctx.author.mention} got a **D-TIER** card.\n"
-        }
-        
-        # Calculate card value
-        card_value = calculate_card_value(waifu['rarity_tier'], waifu.get('popularity_rank'))
-        
-        congrats = congrats_messages.get(waifu['rarity_tier'], '')
-        message = (
-            f"{congrats}You rolled **{waifu['name']}** ({waifu['rarity_tier']}) for ${cost}!\n"
-            f"Serial: `{serial}`\n"
-            f"Card Value: **${card_value:,}**"
-        )
-        
-        # Send card
-        file = discord.File(fp=card_image, filename=f"waifu_card_{serial}.png")
-        await ctx.reply(message, file=file)
+            # Create congratulations message based on rarity
+            congrats_messages = {
+                'SS': f"🎉🎉🎉 INCREDIBLE! {ctx.author.mention} just pulled an **SS-TIER** card! 🎉🎉🎉\n",
+                'S': f"🎉🎉 AMAZING! {ctx.author.mention} pulled an **S-TIER** card! 🎉🎉\n",
+                'A': f"🎉 Wow! {ctx.author.mention} got an **A-TIER** card! 🎉\n",
+                'B': f"Nice! {ctx.author.mention} found a **B-TIER** card!\n",
+                'C': f"{ctx.author.mention} drew a **C-TIER** card.\n",
+                'D': f"{ctx.author.mention} got a **D-TIER** card.\n"
+            }
+            
+            # Calculate card value
+            card_value = calculate_card_value(waifu['rarity_tier'], waifu.get('popularity_rank'))
+            
+            congrats = congrats_messages.get(waifu['rarity_tier'], '')
+            message = (
+                f"{congrats}You rolled **{waifu['name']}** ({waifu['rarity_tier']}) for ${cost}!\n"
+                f"Serial: `{serial}`\n"
+                f"Card Value: **${card_value:,}**"
+            )
+            
+            # Send card
+            file = discord.File(fp=card_image, filename=f"waifu_card_{serial}.png")
+            await placeholder.edit(content=message, attachments=[file])
+        finally:
+            self.active_draws.discard(ctx.author.id)
 
     @commands.hybrid_command(name="waifu", description="View waifu cards")
     @app_commands.describe(query="Rarity tier (SS/S/A/B/C/D) or card code")
