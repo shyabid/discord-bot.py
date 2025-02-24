@@ -469,12 +469,12 @@ class Waifu(commands.Cog):
         # Add some suspense with delay
         await asyncio.sleep(2)
             
-        # Offload card image creation to a separate thread
-        card_image = await asyncio.to_thread(create_waifu_card, waifu, serial, ctx.author.name)
+        # Create card image
+        card_image = create_waifu_card(waifu, serial, ctx.author.name)
         
-        # Deduct cost and offload saving card (which is a blocking db insertion) to a thread
+        # Deduct cost and save card to user's collection
         await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, -cost)
-        await asyncio.to_thread(self.save_card, ctx.author.id, waifu, serial)
+        await self.save_card(ctx.author.id, waifu, serial)
         
         # Create congratulations message based on rarity
         congrats_messages = {
@@ -617,76 +617,60 @@ class Waifu(commands.Cog):
             await interaction.response.edit_message(attachments=[file], view=self)
 
     @commands.hybrid_command(name="waifulist")
-    async def waifulist(self, ctx: commands.Context, *, query: Optional[str] = None):
-        """Shows list of waifus or a user's collection using embeds and normal pagination.
-        
-        Parameters:
-        -----------
-        query: Optional search query – can be a user mention/ID, a waifu name, or omitted to list all.
-        """
-        if query:
-            # First try to find a user by mention or ID
-            user = None
-            if query.startswith('<@') and query.endswith('>'):
-                try:
-                    user_id = int(query.strip('<@!>'))
-                    user = ctx.guild.get_member(user_id)
-                except ValueError:
-                    pass
-            else:
-                try:
-                    user_id = int(query)
-                    user = ctx.guild.get_member(user_id)
-                except ValueError:
-                    pass
+    async def waifulist(self, ctx: commands.Context, query: str = None):
+        """Shows list of all waifus or specific waifus"""
+        if isinstance(query, discord.Member):
+            # Show user's waifu collection
+            cards = list(self.collection.find({"owner_id": query.id}))
+            if not cards:
+                return await ctx.reply(f"{query.display_name} has no waifu cards!")
 
-            if user:
-                # Build embed pages for a user's collection
-                cards = list(self.collection.find({"owner_id": user.id}))
-                if not cards:
-                    return await ctx.reply(f"{user.display_name} has no waifu cards!")
-                lines = []
-                for card in cards:
-                    waifu_data = self.waifu_data.get(str(card['waifu_id']), {})
-                    name = waifu_data.get("name", "Unknown")
-                    rarity = card.get("rarity", "N/A")
-                    rank = card.get("rank", "?")
-                    lines.append(f"**#{rank}** {name} - `{card['serial_number']}` [{rarity}]")
-                pages = [lines[i:i+10] for i in range(0, len(lines), 10)]
-                embeds = []
-                for idx, page in enumerate(pages, start=1):
-                    embed = discord.Embed(
-                        title=f"{user.display_name}'s Collection",
-                        description="\n".join(page),
-                        color=discord.Color.blue()
-                    )
-                    embed.set_footer(text=f"Page {idx} of {len(pages)}")
-                    embeds.append(embed)
-                view = PaginationView(embeds, ctx.author)
-                return await ctx.reply(embed=embeds[0], view=view)
-            else:
-                # Search for waifus by name
-                matches = []
-                query_lower = query.lower()
-                for wid, wdata in self.waifu_data.items():
-                    if query_lower in wdata.get("name", "").lower():
-                        matches.append(f"**#{wdata.get('popularity_rank', '?')}** {wdata.get('name', 'Unknown')} – {wdata.get('rarity_tier', 'N/A')}")
-                if not matches:
-                    return await ctx.reply(f"No waifus found matching '{query}'")
-                pages = [matches[i:i+10] for i in range(0, len(matches), 10)]
-                embeds = []
-                for idx, page in enumerate(pages, start=1):
-                    embed = discord.Embed(
-                        title=f"Waifu Search Results for '{query}'",
-                        description="\n".join(page),
-                        color=discord.Color.blue()
-                    )
-                    embed.set_footer(text=f"Page {idx} of {len(pages)}")
-                    embeds.append(embed)
-                view = PaginationView(embeds, ctx.author)
-                return await ctx.reply(embed=embeds[0], view=view)
-        else:
-            # Default behavior: show all waifus with copy counts
+            card_data_list = []
+            for card in cards:
+                waifu_data = self.waifu_data.get(str(card['waifu_id']), {})
+                waifu_data['rarity_tier'] = card['rarity']
+                waifu_data['popularity_rank'] = card['rank']
+                
+                # Create card image in memory
+                card_image = create_waifu_card(waifu_data, card['serial_number'], query.name)
+                
+                card_data_list.append({
+                    "image": card_image,  # Store the BytesIO object directly
+                    "serial": card['serial_number'],
+                    "owner": query.name
+                })
+
+            # Create and send first card with pagination
+            view = WaifuImagePagination(card_data_list, ctx.author)
+            first_card = card_data_list[0]["image"]
+            file = discord.File(fp=first_card, filename="card.png")
+            message = await ctx.reply(file=file, view=view)
+            view.message = message
+            return
+
+        elif isinstance(query, str):
+            # Search for specific waifu
+            matches = []
+            query_lower = query.lower()
+            for wid, wdata in self.waifu_data.items():
+                if query_lower in wdata['name'].lower():
+                    wdata['id'] = wid
+                    matches.append(wdata)
+
+            if not matches:
+                return await ctx.reply(f"No waifus found matching '{query}'")
+
+            # Create demo card for first match
+            waifu = matches[0]
+            card_image = create_waifu_card(waifu, "DEMO-000000", "Demo Card")
+            
+            file = discord.File(fp=card_image, filename="card.png")
+            await ctx.reply(f"Found {len(matches)} matches. Showing first match:", file=file)
+            return
+
+        # Default behavior - show all waifus list
+        try:
+            # Get all waifus and their counts from database
             pipeline = [
                 {"$group": {
                     "_id": "$waifu_id",
@@ -695,22 +679,27 @@ class Waifu(commands.Cog):
                 }},
                 {"$sort": {"name": 1}}
             ]
-            waifu_counts = {str(doc["_id"]): (doc["name"], doc["count"]) 
-                            for doc in self.collection.aggregate(pipeline)}
+            
+            waifu_counts = {
+                str(doc["_id"]): (doc["name"], doc["count"]) 
+                for doc in self.collection.aggregate(pipeline)
+            }
+            
+            # Build lines for each waifu including those with 0 cards
             lines = []
-            for waifu_id, wdata in self.waifu_data.items():
-                name = wdata.get("name", "Unknown")
+            for waifu_id, waifu_data in self.waifu_data.items():
+                name = waifu_data.get('name', 'Unknown')
                 count = waifu_counts.get(waifu_id, (name, 0))[1]
-                rank = wdata.get("popularity_rank", "?")
-                lines.append(f"**#{rank}** {name} – Copies: {count}")
-            def sort_key(line):
-                try:
-                    return int(line.split()[0].strip("#"))
-                except:
-                    return 9999
-            lines.sort(key=sort_key)
-            pages = [lines[i:i+10] for i in range(0, len(lines), 10)]
+                rank = waifu_data.get('popularity_rank', '?')
+                lines.append(f"#{rank}. {name} ({count})")
+            
+            # Sort by rank (convert ? to infinity for sorting)
+            lines.sort(key=lambda x: float('inf') if x.split('.')[0] == '#?' else int(x.split('.')[0][1:]))
+            
+            # Create paginated embeds
+            pages = [lines[i:i+20] for i in range(0, len(lines), 20)]
             embeds = []
+            
             for idx, page in enumerate(pages, start=1):
                 embed = discord.Embed(
                     title="Waifu List",
@@ -719,8 +708,13 @@ class Waifu(commands.Cog):
                 )
                 embed.set_footer(text=f"Page {idx} of {len(pages)}")
                 embeds.append(embed)
+            
             view = PaginationView(embeds, ctx.author)
-            await ctx.reply(embed=embeds[0], view=view)
+            await ctx.reply(embed=embeds[0], view=view, ephemeral=True)
+            
+        except Exception as e:
+            print(f"Error in waifulist command: {e}")
+            await ctx.reply("An error occurred while fetching the waifu list.", ephemeral=True)
 
     @commands.command(name="inventory")
     async def inventory(self, ctx: commands.Context, target: Optional[discord.Member] = None) -> None:
