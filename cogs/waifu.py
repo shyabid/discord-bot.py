@@ -115,7 +115,16 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
     # Create draw object
     draw = ImageDraw.Draw(img)
     
-    # Load fonts (try to use better fonts if available)
+    # Initialize fonts with defaults first
+    name_font = ImageFont.load_default()
+    name_font_bold = ImageFont.load_default()
+    info_font = ImageFont.load_default()
+    owner_font = ImageFont.load_default()
+    rarity_font = ImageFont.load_default()
+    rank_font = ImageFont.load_default()
+    percent_font = ImageFont.load_default()
+    
+    # Try to load better fonts if available
     try:
         name_font = ImageFont.truetype("arial.ttf", 56)
         name_font_bold = ImageFont.truetype("arialbd.ttf", 56)
@@ -124,13 +133,8 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
         rarity_font = ImageFont.truetype("arialbd.ttf", 120)
         rank_font = ImageFont.truetype("arial.ttf", 48)
         percent_font = ImageFont.truetype("arialbd.ttf", 42)
-    except:
-        name_font = ImageFont.load_default()
-        name_font_bold = ImageFont.load_default()
-        info_font = ImageFont.load_default()
-        rarity_font = ImageFont.load_default()
-        rank_font = ImageFont.load_default()
-        percent_font = ImageFont.load_default()
+    except Exception as e:
+        print(f"Failed to load custom fonts, using defaults: {e}")
     
     # Add gradient overlay (dark bottom to transparent top)
     gradient = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
