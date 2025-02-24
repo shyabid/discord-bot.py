@@ -61,23 +61,23 @@ class Anime(commands.Cog):
         except Exception as e:
             await ctx.reply(f"An error occurred: {e}")
 
-    @commands.command(
-        name="waifu",
-        description="Get a random waifu image",
-        aliases=["w", "wa"]
-    ) 
-    async def waifu_command(
-        self,
-        ctx: commands.Context
-    ) -> None:
-        """
-        Get a random waifu image from the internet.
+    # @commands.command(
+    #     name="waifu",
+    #     description="Get a random waifu image",
+    #     aliases=["w", "wa"]
+    # ) 
+    # async def waifu_command(
+    #     self,
+    #     ctx: commands.Context
+    # ) -> None:
+    #     """
+    #     Get a random waifu image from the internet.
 
-        **Parameters:**
-        None
+    #     **Parameters:**
+    #     None
 
-        """
-        await self.waifu(ctx)
+    #     """
+    #     await self.waifu(ctx)
 
     @anime.command(
         name="neko",

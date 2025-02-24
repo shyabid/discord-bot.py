@@ -29,6 +29,15 @@ class Leveling(commands.Cog):
             "xp_color": "5865f2",
             "circle_avatar": True
         }
+        self.level_up_channels = {}  # Store level up channels per guild
+        self.load_level_channels()
+
+    def load_level_channels(self):
+        """Load level up channels from database"""
+        for guild in self.bot.guilds:
+            data = self.bot.db[str(guild.id)]["config"].find_one({"_id": "leveling"})
+            if data and "channel_id" in data:
+                self.level_up_channels[guild.id] = data["channel_id"]
 
     def get_user_data(self, guild_id: int, user_id: int) -> dict:
         return self.bot.db[str(guild_id)]["leveling"].find_one({"user_id": user_id}) or {
@@ -78,7 +87,14 @@ class Leveling(commands.Cog):
         old_level, new_level, leveled_up = await self.update_user_data(guild_id, user_id, xp_gained)
         
         if leveled_up:
-            await message.channel.send(
+            # Get level up channel if set
+            level_up_channel = None
+            if guild_id in self.level_up_channels:
+                level_up_channel = message.guild.get_channel(self.level_up_channels[guild_id])
+
+            channel_to_send = level_up_channel or message.channel
+            
+            await channel_to_send.send(
                 f"🎉 Congratulations {message.author.mention}! You've reached level {new_level}!"
             )
             # Check for rewards
@@ -86,7 +102,7 @@ class Leveling(commands.Cog):
             if reward_role:
                 try:
                     await message.author.add_roles(reward_role)
-                    await message.channel.send(f"You've earned the {reward_role.mention} role!")
+                    await channel_to_send.send(f"You've earned the {reward_role.mention} role!")
                 except discord.HTTPException:
                     pass
             
@@ -234,18 +250,23 @@ class Leveling(commands.Cog):
         data = self.bot.db[str(ctx.guild.id)]["leveling"].find().sort("xp", -1).limit(10)
         
         embed = discord.Embed(
-            title="🏆 Leaderboard",
-            color=discord.Color.dark_grey()
+            title="🏆 Server Leaderboard",
+            color=discord.Color.gold()
         )
-        
+
+        description = []
         for i, user_data in enumerate(data, 1):
             user = ctx.guild.get_member(user_data["user_id"])
             if user:
-                embed.add_field(
-                    name=f"#{i} {user.display_name}",
-                    value=f"Level: {user_data['level']} | XP: {user_data['xp']}",
-                    inline=False
+                # Format: #1 @user Level 5 `1234 XP`
+                description.append(
+                    f"#{i} {user.mention} Level {user_data['level']} `{user_data['xp']:,} XP`"
                 )
+
+        if description:
+            embed.description = "\n".join(description)
+        else:
+            embed.description = "No data available yet!"
         
         await ctx.reply(embed=embed)
 
@@ -480,6 +501,54 @@ class Leveling(commands.Cog):
         # Show preview
         await self.rank(ctx, ctx.author)
         await ctx.reply("Server rank card customization updated! Here's a preview.")
+
+    @leveling.command(
+        name="setchannel",
+        description="Set the channel for level up announcements"
+    )
+    @commands.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        channel="The channel for level up messages (leave empty to reset)"
+    )
+    async def setchannel(
+        self, 
+        ctx: commands.Context, 
+        channel: Optional[discord.TextChannel] = None
+    ) -> None:
+        """
+        Set the channel where level up messages will be sent.
+
+        **Usage:**
+        ?leveling setchannel [channel]
+        /leveling setchannel [channel]
+
+        **Parameters:**
+        channel (optional): The channel for level up messages. Leave empty to reset to default behavior.
+
+        **Examples:**
+        ?leveling setchannel #level-ups
+        ?leveling setchannel
+        """
+        if channel:
+            # Save to database
+            self.bot.db[str(ctx.guild.id)]["config"].update_one(
+                {"_id": "leveling"},
+                {"$set": {"channel_id": channel.id}},
+                upsert=True
+            )
+            # Update cache
+            self.level_up_channels[ctx.guild.id] = channel.id
+            await ctx.reply(f"Level up messages will now be sent to {channel.mention}!")
+        else:
+            # Remove from database
+            self.bot.db[str(ctx.guild.id)]["config"].update_one(
+                {"_id": "leveling"},
+                {"$unset": {"channel_id": ""}},
+                upsert=True
+            )
+            # Remove from cache
+            self.level_up_channels.pop(ctx.guild.id, None)
+            await ctx.reply("Level up messages will now be sent in the channel where the user levels up!")
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Leveling(bot))

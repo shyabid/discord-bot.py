@@ -85,6 +85,15 @@ class Economy(commands.Cog):
         self.default_currency = 0.1  # Amount earned per message
         bot.loop.create_task(self.setup_shop_messages())
         self.ensure_collections()
+        self.daily_cooldowns = {}  # {user_id: last_claim_timestamp}
+        self.load_daily_cooldowns()
+
+    def load_daily_cooldowns(self):
+        """Load daily cooldowns from database"""
+        for guild in self.bot.guilds:
+            daily_data = self.bot.db[str(guild.id)]["daily_claims"].find()
+            for data in daily_data:
+                self.daily_cooldowns[data["user_id"]] = data["last_claim"]
 
     def ensure_collections(self):
         """Ensure all required collections exist"""
@@ -157,8 +166,8 @@ class Economy(commands.Cog):
             title="🏪 Server Shop",
             description=(
                 "**Instructions**\n"
-                "All purchases are final. Items/roles may have usage limits. Contact staff for purchase issues."
-                "Use the select menu bellow to puchess. Additionally, you can use /buy too.\n"
+                "All purchases are final. Items/roles may have usage limits. Contact staff for purchase issues. "
+                "Use the select menu bellow to purchase. Additionally, you can use /buy too.\n"
             ),
             color=discord.Color.gold()
         )
@@ -252,6 +261,31 @@ class Economy(commands.Cog):
         if not item.get('max_per_user'):
             return True
             
+        # For roles, only check limit if user currently has the role
+        if item["type"] == "role":
+            guild = self.bot.get_guild(guild_id)
+            member = guild.get_member(user_id)
+            role = guild.get_role(item["role_id"])
+            
+            if not role or not member:
+                return True
+                
+            # If user doesn't have the role, they can buy it
+            if role not in member.roles:
+                return True
+                
+            # If it's a temporary role, check if it's expired in temp_roles
+            if item.get("time_limit"):
+                temp_role = self.bot.db[str(guild_id)]["temp_roles"].find_one({
+                    "user_id": user_id,
+                    "role_id": role.id
+                })
+                
+                # If no temp role entry or role has expired, they can buy again
+                if not temp_role or temp_role["removal_time"] <= time.time():
+                    return True
+
+        # For regular items or if user has active role, check normal limit
         purchases = self.bot.db[str(guild_id)]["user_purchases"].find_one({
             "user_id": user_id,
             "item_code": item["code"]
@@ -642,15 +676,10 @@ class Economy(commands.Cog):
         user = user or ctx.author
         balance = await self.get_user_balance(ctx.guild.id, user.id)
         
-        embed = discord.Embed(
-            title="💰 Balance",
-            color=discord.Color.gold()
-        )
-        embed.add_field(
-            name=f"{user.display_name}'s Balance",
-            value=f"${balance:.2f}"
-        )
-        await ctx.reply(embed=embed)
+        if user == ctx.author:
+            await ctx.reply(f"Your balance: `${balance:.2f}`")
+        else:
+            await ctx.reply(f"{user.name}'s balance: `${balance:.2f}`")
 
     @commands.hybrid_command(name="give", description="Give money to another user")
     @app_commands.describe(
@@ -674,23 +703,23 @@ class Economy(commands.Cog):
         /give @username 50.5
         """
         if amount <= 0:
-            await ctx.reply("Amount must be positive!")
+            await ctx.reply("❌ Amount must be positive!")
             return
             
         if user == ctx.author:
-            await ctx.reply("You can't give money to yourself!")
+            await ctx.reply("❌ You can't give money to yourself!")
             return
 
         sender_balance = await self.get_user_balance(ctx.guild.id, ctx.author.id)
         if sender_balance < amount:
-            await ctx.reply("You don't have enough money!")
+            await ctx.reply("❌ You don't have enough money!")
             return
 
         # Transfer the money
         await self.update_user_balance(ctx.guild.id, ctx.author.id, -amount)
         await self.update_user_balance(ctx.guild.id, user.id, amount)
 
-        await ctx.reply(f"Successfully sent ${amount:.2f} to {user.mention}!")
+        await ctx.reply(f"✅ Successfully sent `${amount:.2f}` to {user.mention}!")
 
     @commands.hybrid_command(name="buy", description="Buy an item from the shop")
     @app_commands.describe(code="The item code to buy")
@@ -924,6 +953,52 @@ class Economy(commands.Cog):
         await self.update_user_balance(ctx.guild.id, user.id, amount)
 
         await ctx.reply(f"Given ${amount:.2f} to {user.mention} from shop balance!")
+
+    @commands.hybrid_command(name="daily", description="Claim your daily reward")
+    async def daily(self, ctx: commands.Context) -> None:
+        """
+        Claim your daily reward (2$-5$). Can be claimed once every 24 hours.
+
+        **Usage:**
+        ?daily
+        /daily
+
+        **Example:**
+        ?daily
+        """
+        user_id = ctx.author.id
+        current_time = time.time()
+
+        # Check cooldown
+        if user_id in self.daily_cooldowns:
+            last_claim = self.daily_cooldowns[user_id]
+            time_elapsed = current_time - last_claim
+            if time_elapsed < 86400:  # 24 hours in seconds
+                time_left = 86400 - time_elapsed
+                hours = int(time_left // 3600)
+                minutes = int((time_left % 3600) // 60)
+                await ctx.reply(f"❌ You can claim your daily reward again in `{hours}h {minutes}m`")
+                return
+
+        # Generate random reward between $2 and $5
+        reward = round(random.uniform(2, 5), 2)
+
+        # Update user's balance
+        await self.update_user_balance(ctx.guild.id, user_id, reward)
+
+        # Update cooldown
+        self.daily_cooldowns[user_id] = current_time
+        self.bot.db[str(ctx.guild.id)]["daily_claims"].update_one(
+            {"user_id": user_id},
+            {"$set": {"last_claim": current_time}},
+            upsert=True
+        )
+
+        # Get streak information (you can implement streak system later)
+        await ctx.reply(
+            f"✅ You claimed your daily reward of `${reward:.2f}`!\n"
+            f"Your new balance: `${await self.get_user_balance(ctx.guild.id, user_id):.2f}`"
+        )
 
 
 async def setup(bot: commands.Bot):

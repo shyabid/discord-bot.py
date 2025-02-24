@@ -50,6 +50,7 @@ EXTENSIONS: List[str] = [
     # 'cogs.chat',
     'cogs.owner',
     'cogs.leveling',
+    'cogs.waifu',
     'cogs.economy'
     
 ]

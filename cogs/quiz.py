@@ -23,6 +23,7 @@ class Quiz(commands.Cog):
         self.last_fetch_time = None
         self.min_questions = 10
         self.refill_amount = 40
+        self.reward_amount = 0.50  # Amount earned per correct answer
     
     @commands.Cog.listener()
     async def on_ready(self):
@@ -165,9 +166,23 @@ class Quiz(commands.Cog):
             selected_answer = select.values[0]
             correct = selected_answer == correct_answer
             await self.update_score(interaction.user.id, correct, category_name)
+            
+            # Give money reward for correct answer
+            if correct:
+                await self.bot.get_cog('Economy').update_user_balance(
+                    interaction.guild.id, 
+                    interaction.user.id, 
+                    self.reward_amount
+                )
+                reward_text = f"\nYou earned ${self.reward_amount:.2f}!"
+            else:
+                reward_text = ""
 
-            result_message = "Correct!" if correct else f"Incorrect. The correct answer was: {correct_answer}"
-            result_embed = discord.Embed(description=result_message, color=discord.Color.green() if correct else discord.Color.red())
+            result_message = f"{'Correct!' if correct else f'Incorrect. The correct answer was: {correct_answer}'}{reward_text}"
+            result_embed = discord.Embed(
+                description=result_message, 
+                color=discord.Color.green() if correct else discord.Color.red()
+            )
 
             select.disabled = True
             view = discord.ui.View()
