@@ -49,12 +49,12 @@ def get_rarity_color(rarity: str) -> tuple:
 def get_rarity_percentage(rarity: str) -> float:
     """Get rarity percentage for display"""
     percentages = {
-        'SS': 0.007,
-        'S': 0.07,
-        'A': 0.7,
-        'B': 7, 
-        'C': 20,
-        'D': 100
+        'SS': 0.01,
+        'S': 0.1,
+        'A': 1,
+        'B': 10, 
+        'C': 30,
+        'D': 58.98
          
     }
     return percentages.get(rarity, 0.0)
@@ -242,12 +242,12 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
 def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     """Calculate card value based on rarity and popularity rank"""
     value_ranges = {
-        'D': (1, 4),        # $1-4
-        'C': (4, 15),       # $4-15
-        'B': (15, 50),      # $15-50
-        'A': (50, 200),     # $50-200
-        'S': (400, 2000),   # $400-2,000
-        'SS': (2000, 6000)  # $2,000-6,000
+        'D': (1, 2), 
+        'C': (15, 20),
+        'B': (50, 60),
+        'A': (100, 300),
+        'S': (1000, 3000),
+        'SS': (8000, 12000)
     }
     
     if rarity not in value_ranges:
@@ -268,9 +268,9 @@ def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     return round(value)
 
 def calculate_resale_value(rarity: str, popularity_rank: int) -> int:
-    """Calculate resale value as a random 30%–50% of the original card value"""
+    """Calculate resale value as a random 70%–85% of the original card value"""
     original_value = calculate_card_value(rarity, popularity_rank)
-    percentage = random.uniform(0.2, 0.35)
+    percentage = random.uniform(0.70, 0.85)
     return round(original_value * percentage)
 
 class Waifu(commands.Cog):
@@ -284,13 +284,12 @@ class Waifu(commands.Cog):
     - Inventory management
     
     Rarity Probabilities:
-    Normal Roll ($3):
-        SS: 0.007%, S: 0.07%, A: 0.7%, B: 7%, C: 20%, D: 100%
+    Normal Roll ($2):
+        SS: 0.01%, S: 0.1%, A: 1%, B: 10%, C: 30%, D: 58.89%
     
     Targeted Rolls:
-        C-Tier ($20): SS: 0.02%, S: 0.2%, A: 2%, B: 20%, C: 100%
-        B-Tier ($50): SS: 0.06%, S: 0.6%, A: 10%, B: 100%
-        A-Tier ($150): SS: 0.4%, S: 4%, A: 100%
+        C-Tier ($10): SS: 0.04%, S: 0.4%, A: 4%, B: 40%, C: 55.56%
+        B-Tier ($30): SS: 0.1%, S: 1%, A: 10%, B: 88.9%
     """
     
     def __init__(self, bot):
@@ -298,10 +297,9 @@ class Waifu(commands.Cog):
         self.waifu_data = load_waifu_data()
         # Adjust cost mapping if desired:
         self.rarity_costs = {
-            None: 3,   # normal roll costs $3
+            None: 2,   # normal roll costs $3
             'C': 20,   # roll for C costs $10
-            'B': 50,   # roll for B costs $30
-            'A': 150   # roll for A costs $100
+            'B': 60,   # roll for B costs $30
         }
         # Available tiers for normal roll include all:
         self.available_rarities = ['SS','S','A','B','C','D']
@@ -313,20 +311,16 @@ class Waifu(commands.Cog):
         """Returns a rarity string based on cost type using preset weights"""
         probabilities = {
             'normal': {
-            'tiers': ['SS', 'S', 'A', 'B', 'C', 'D'],
-            'weights': [0.007, 0.07, 0.7, 7, 20, 100]
+                'tiers': ['SS', 'S', 'A', 'B', 'C', 'D'],
+                'weights': [0.005, 0.05, 0.5, 3, 10, 100]
             },
             'C': {
-            'tiers': ['SS', 'S', 'A', 'B', 'C'],
-            'weights': [0.02, 0.2, 2, 20, 100]
+                'tiers': ['SS', 'S', 'A', 'B', 'C'],
+                'weights': [0.03, 0.3, 3, 30, 100]
             },
             'B': {
-            'tiers': ['SS', 'S', 'A', 'B'],
-            'weights': [0.06, 0.6, 10, 100]
-            },
-            'A': {
-            'tiers': ['SS', 'S', 'A'],
-            'weights': [0.4, 4, 100]
+                'tiers': ['SS', 'S', 'A', 'B'],
+                'weights': [0.1, 1, 10, 100]
             }
         }
         if cost_type is None:
@@ -386,9 +380,8 @@ class Waifu(commands.Cog):
             })
         except Exception as e:
             print(f"Error saving card: {e}")
-
     @commands.hybrid_command(name="draw", aliases=["roll"], description="Roll for a random waifu card")
-    @app_commands.describe(rarity="Minimum rarity tier to roll for (A/B/C)")
+    @app_commands.describe(rarity="Maximum rarity tier to roll for (B/C)")
     async def draw(self, ctx: commands.Context, rarity: Optional[str] = None) -> None:
         """
         Waifu Card Collection System
@@ -400,13 +393,16 @@ class Waifu(commands.Cog):
         - Inventory management
         
         Rarity Probabilities:
-        Normal Roll ($3):
-            SS: 0.007%, S: 0.07%, A: 0.7%, B: 7%, C: 20%, D: 100%
+        Normal Roll ($2):
+            SS: 0.005%, S: 0.05%, A: 0.5%, B: 3%, C: 10%, D: 100%
         
         Targeted Rolls:
-            C-Tier ($20): SS: 0.02%, S: 0.2%, A: 2%, B: 20%, C: 100%
-            B-Tier ($50): SS: 0.06%, S: 0.6%, A: 10%, B: 100%
-            A-Tier ($150): SS: 0.4%, S: 4%, A: 100%
+            C-Tier ($20): SS: 0.03%, S: 0.3%, A: 3%, B: 30%, C: 100%
+            B-Tier ($60): SS: 0.1%, S: 1%, A: 10%, B: 100%
+    
+        Roll for a random waifu card. Optionally specify minimum rarity.
+        Costs: B=$60, C=$20
+        Default roll (any rarity) costs $2
         """
         # Check if user is already drawing
         if ctx.author.id in self.active_draws:
@@ -420,8 +416,8 @@ class Waifu(commands.Cog):
             # Validate and normalize rarity input
             if rarity:
                 rarity = rarity.upper()
-                if rarity not in self.available_rarities:
-                    await placeholder.edit(content="Invalid rarity! Use A, B, or C")
+                if rarity not in ['B', 'C']:
+                    await placeholder.edit(content="Invalid rarity! Use B or C")
                     return
 
             # Check if user has enough money
@@ -447,7 +443,6 @@ class Waifu(commands.Cog):
                 
             # Create card image
             card_image = await asyncio.to_thread(create_waifu_card, waifu, serial, ctx.author.name)
-            
             # Deduct cost and save card to user's collection
             await economy_cog.update_user_balance(ctx.guild.id, ctx.author.id, -cost)
             await asyncio.to_thread(self.save_card, ctx.author.id, waifu, serial)
@@ -795,13 +790,6 @@ class Waifu(commands.Cog):
     async def sell(self, ctx: commands.Context, arg: str) -> None:
         """
         Sell a card by card code or sell all cards in a given tier.
-        Resale values:
-        - SS: $1500-$3000
-        - S: $400-$1000
-        - A: 60-90% of $100
-        - B: 60-90% of $30
-        - C: 60-90% of $10
-        - D: 60-90% of $3
         Higher ranked cards (lower rank number) sell for better values.
         """
         import asyncio
