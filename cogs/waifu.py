@@ -268,38 +268,10 @@ def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     return round(value)
 
 def calculate_resale_value(rarity: str, popularity_rank: int) -> int:
-    """Calculate resale value based on rarity and rank"""
-    # Define minimum resale values by tier
-    min_values = {
-        'SS': 1500,  # SS cards minimum $1500
-        'S': 400,    # S cards minimum $400
-        'A': 60,     # 60% of $100 draw cost
-        'B': 18,     # 60% of $30 draw cost
-        'C': 6,      # 60% of $10 draw cost
-        'D': 1.8     # 60% of $3 draw cost
-    }
-    
-    max_values = {
-        'SS': 3000,  # SS cards up to $3000
-        'S': 1000,   # S cards up to $1000
-        'A': 90,     # 90% of $100
-        'B': 27,     # 90% of $30
-        'C': 9,      # 90% of $10
-        'D': 2.7     # 90% of $3
-    }
-    
-    min_value = min_values.get(rarity, 1.8)
-    max_value = max_values.get(rarity, 2.7)
-    
-    if not popularity_rank:
-        return round(min_value)
-    
-    # Scale between min and max based on rank
-    max_rank = 2500
-    rank_factor = 1 - (math.log(popularity_rank + 1) / math.log(max_rank + 1))
-    value = min_value + (max_value - min_value) * rank_factor
-    
-    return round(value)
+    """Calculate resale value as a random 30%–50% of the original card value"""
+    original_value = calculate_card_value(rarity, popularity_rank)
+    percentage = random.uniform(0.2, 0.35)
+    return round(original_value * percentage)
 
 class Waifu(commands.Cog):
     """
