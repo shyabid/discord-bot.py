@@ -261,27 +261,38 @@ def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     return round(value)
 
 def calculate_resale_value(rarity: str, popularity_rank: int) -> int:
-    """Calculate resale value based on draw cost and rank"""
-    draw_costs = {
-        'SS': 100,  # Using A-tier cost since SS can only be obtained through luck
-        'S': 100,   # Using A-tier cost since S can only be obtained through luck
-        'A': 100,
-        'B': 30,
-        'C': 10,
-        'D': 3
+    """Calculate resale value based on rarity and rank"""
+    # Define minimum resale values by tier
+    min_values = {
+        'SS': 1500,  # SS cards minimum $1500
+        'S': 400,    # S cards minimum $400
+        'A': 60,     # 60% of $100 draw cost
+        'B': 18,     # 60% of $30 draw cost
+        'C': 6,      # 60% of $10 draw cost
+        'D': 1.8     # 60% of $3 draw cost
     }
     
-    base_cost = draw_costs.get(rarity, 3)
+    max_values = {
+        'SS': 3000,  # SS cards up to $3000
+        'S': 1000,   # S cards up to $1000
+        'A': 90,     # 90% of $100
+        'B': 27,     # 90% of $30
+        'C': 9,      # 90% of $10
+        'D': 2.7     # 90% of $3
+    }
+    
+    min_value = min_values.get(rarity, 1.8)
+    max_value = max_values.get(rarity, 2.7)
     
     if not popularity_rank:
-        return int(base_cost * 0.6)  # Minimum 60% for unknown rank
-        
-    # Scale resale percentage based on rank (90% for rank 1, down to 60% for higher ranks)
-    max_rank = 2500  # Approximate max rank in database
-    rank_factor = 1 - (math.log(popularity_rank + 1) / math.log(max_rank + 1))
-    resale_percent = 0.6 + (0.3 * rank_factor)  # 0.6 to 0.9 range
+        return round(min_value)
     
-    return round(base_cost * resale_percent)
+    # Scale between min and max based on rank
+    max_rank = 2500
+    rank_factor = 1 - (math.log(popularity_rank + 1) / math.log(max_rank + 1))
+    value = min_value + (max_value - min_value) * rank_factor
+    
+    return round(value)
 
 class Waifu(commands.Cog):
     """
@@ -707,15 +718,23 @@ class Waifu(commands.Cog):
     async def sell(self, ctx: commands.Context, arg: str) -> None:
         """
         Sell a card by card code or sell all cards in a given tier.
-        Resale value is 60-90% of original value, based on popularity rank.
-        Higher ranked cards (lower rank number) sell for a better percentage.
+        Resale values:
+        - SS: $1500-$3000
+        - S: $400-$1000
+        - A: 60-90% of $100
+        - B: 60-90% of $30
+        - C: 60-90% of $10
+        - D: 60-90% of $3
+        Higher ranked cards (lower rank number) sell for better values.
         """
         import asyncio
         economy_cog = self.bot.get_cog('Economy')
         if not economy_cog:
             return await ctx.reply("Economy system is not available!")
             
+        # First check ownership regardless of sell type
         cards = await asyncio.to_thread(lambda: list(self.collection.find({"owner_id": ctx.author.id})))
+        
         if not cards:
             return await ctx.reply("You don't have any cards to sell.")
             
@@ -749,7 +768,7 @@ class Waifu(commands.Cog):
             
             # Split details into chunks if needed
             chunks = [details[i:i+10] for i in range(0, len(details), 10)]
-            for i, chunk in range(chunks):
+            for i, chunk in enumerate(chunks):  # Changed from range(chunks) to enumerate(chunks)
                 embed.add_field(
                     name=f"Sale Details {i+1}" if len(chunks) > 1 else "Sale Details",
                     value="\n".join(chunk),
@@ -1047,6 +1066,70 @@ class Waifu(commands.Cog):
             return await ctx.reply("You do not own that card.")
         self.collection.update_one({"_id": card["_id"]}, {"$set": {"owner_id": target.id}})
         await ctx.reply(f"Card {card_code} has been gifted to {target.mention}.")
+
+    @commands.command(name="waifulb", aliases=["waifu-lb", "waifu-leaderboard"])
+    async def waifu_leaderboard(self, ctx: commands.Context):
+        """Shows the top 5 users with highest value waifu collections"""
+        # Get all cards and group by owner
+        pipeline = [
+            {"$match": {"owner_id": {"$exists": True}}},
+            {"$group": {
+                "_id": "$owner_id",
+                "total_cards": {"$sum": 1},
+                "cards_by_tier": {
+                    "$push": "$rarity"
+                }
+            }}
+        ]
+        
+        results = list(self.collection.aggregate(pipeline))
+        
+        # Calculate total value and tier counts for each user
+        user_stats = []
+        for result in results:
+            owner_id = result["_id"]
+            tier_counts = {tier: result["cards_by_tier"].count(tier) for tier in self.available_rarities}
+            
+            # Calculate total value
+            total_value = 0
+            for card in self.collection.find({"owner_id": owner_id}):
+                card_value = calculate_card_value(card.get("rarity", ""), card.get("rank"))
+                total_value += card_value
+                
+            user_stats.append({
+                "user_id": owner_id,
+                "total_value": total_value,
+                "tier_counts": tier_counts,
+                "total_cards": result["total_cards"]
+            })
+        
+        # Sort by total value and get top 5
+        user_stats.sort(key=lambda x: x["total_value"], reverse=True)
+        top_5 = user_stats[:5]
+        
+        # Create embed
+        embed = discord.Embed(
+            title="🏆 Waifu Collection Leaderboard 🏆",
+            color=discord.Color.gold()
+        )
+        
+        for i, stats in enumerate(top_5, 1):
+            user = self.bot.get_user(stats["user_id"])
+            if not user:
+                continue
+                
+            # Format tier counts
+            tier_text = " | ".join(f"{tier}: {count}" for tier, count in stats["tier_counts"].items() if count > 0)
+            
+            embed.add_field(
+                name=f"{i}. {user.name}",
+                value=f"💰 Total Value: ${stats['total_value']:,}\n"
+                      f"📊 Cards: {stats['total_cards']}\n"
+                      f"📦 Tiers: {tier_text}",
+                inline=False
+            )
+        
+        await ctx.reply(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Waifu(bot))
