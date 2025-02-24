@@ -82,6 +82,50 @@ class PaginationView(discord.ui.View):
         if self.message:
             await self.message.edit(view=self)
 
+class WaifuImagePagination(discord.ui.View):
+    def __init__(self, waifu_card_data: list, author: discord.Member) -> None:
+        super().__init__(timeout=300)
+        self.cards = waifu_card_data
+        self.index = 0
+        self.author = author
+        self.message = None
+        self.update_buttons()
+
+    def update_buttons(self) -> None:
+        self.previous_button.disabled = (self.index == 0)
+        self.next_button.disabled = (self.index == len(self.cards) - 1)
+        self.page_indicator.label = f"{self.index + 1}/{len(self.cards)}"
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user != self.author:
+            await interaction.response.send_message("This button is not for you", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="<", style=discord.ButtonStyle.gray)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        self.index -= 1
+        self.update_buttons()
+        card_data = self.cards[self.index]
+            
+        # Update message with new image
+        file = discord.File(fp=card_data["image"], filename="card.png")
+        await interaction.response.edit_message(attachments=[file], view=self)
+
+    @discord.ui.button(label="1/1", style=discord.ButtonStyle.gray, disabled=True)
+    async def page_indicator(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        pass
+
+    @discord.ui.button(label=">", style=discord.ButtonStyle.gray)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        self.index += 1
+        self.update_buttons()
+        card_data = self.cards[self.index]
+            
+        # Update message with new image
+        file = discord.File(fp=card_data["image"], filename="card.png")
+        await interaction.response.edit_message(attachments=[file], view=self)
+
         
 def create_autocomplete_from_list(
     options: list[str]
