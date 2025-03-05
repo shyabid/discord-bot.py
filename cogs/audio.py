@@ -304,6 +304,7 @@ class Audio(commands.Cog):
                 self.temp_dir, 
                 '%(title)s.%(ext)s'
             ),
+            'cookiesfrombrowser': ('firefox',),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
