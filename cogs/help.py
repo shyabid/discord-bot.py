@@ -2,6 +2,46 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 from typing import List, Optional
+import math
+
+class PaginatedHelpView(discord.ui.View):
+    def __init__(self, embeds: List[discord.Embed]):
+        super().__init__(timeout=180.0)
+        self.embeds = embeds
+        self.current_page = 0
+        
+        # Update button states
+        self.update_buttons()
+        
+    def update_buttons(self):
+        self.first_page.disabled = self.current_page == 0
+        self.prev_page.disabled = self.current_page == 0
+        self.next_page.disabled = self.current_page == len(self.embeds) - 1
+        self.last_page.disabled = self.current_page == len(self.embeds) - 1
+        
+    @discord.ui.button(label="<<", style=discord.ButtonStyle.gray)
+    async def first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = 0
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
+        
+    @discord.ui.button(label="<", style=discord.ButtonStyle.gray)
+    async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = max(0, self.current_page - 1)
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
+        
+    @discord.ui.button(label=">", style=discord.ButtonStyle.gray)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = min(len(self.embeds) - 1, self.current_page + 1)
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
+        
+    @discord.ui.button(label=">>", style=discord.ButtonStyle.gray)
+    async def last_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = len(self.embeds) - 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
 class Help(commands.Cog):
     """Custom help command for the bot."""
@@ -19,8 +59,50 @@ class Help(commands.Cog):
         for command in self.bot.walk_commands():
             if current.lower() in command.qualified_name.lower():
                 choices.append(app_commands.Choice(name=command.qualified_name, value=command.qualified_name))
-        return choices[:25] 
-    
+        return choices[:25]
+    def create_command_pages(self, commands_list, title, items_per_page=10):
+        # Filter out context menu commands
+        filtered_commands = [cmd for cmd in commands_list if not isinstance(cmd, discord.app_commands.ContextMenu)]
+        
+        pages = []
+        total_pages = math.ceil(len(filtered_commands) / items_per_page)
+        
+        if not filtered_commands:
+            embed = discord.Embed(
+                title=title,
+                description="No commands available.",
+                color=discord.Color.dark_grey()
+            )
+            return [embed]
+        
+        for page in range(total_pages):
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            current_commands = filtered_commands[start_idx:end_idx]
+            
+            embed = discord.Embed(
+                title=f"{title} (Page {page + 1}/{total_pages})", 
+                color=discord.Color.dark_grey()
+            )
+            
+            for cmd in current_commands:
+                # Ensure proper signature formatting for different command types
+                if hasattr(cmd, 'signature'):
+                    signature = f"/{cmd.name} {cmd.signature}".strip()
+                else:
+                    signature = f"/{cmd.name}"
+                
+                embed.add_field(
+                    name=signature,
+                    value=cmd.description or "No description available.", 
+                    inline=False
+                )
+            
+            pages.append(embed)
+        
+        return pages
+
+
     @commands.hybrid_command(
         name="help",
         description="Get help on a command or list all commands",
@@ -46,7 +128,11 @@ class Help(commands.Cog):
         """
         try:
             if command is None:
-                embed = discord.Embed(title="Bot Help", description=self.bot.description or "No description available.", color=discord.Color.dark_grey())
+                embed = discord.Embed(
+                    title="Bot Help", 
+                    description=self.bot.description or "No description available.", 
+                    color=discord.Color.dark_grey()
+                )
                 
                 options = []
                 for group in self.bot.tree.get_commands():
@@ -61,31 +147,20 @@ class Help(commands.Cog):
 
                 async def select_callback(interaction: discord.Interaction):
                     selected_option = select_menu.values[0]
-                    embed.clear_fields()
                     if selected_option == "Ungrouped":
-                        embed.title = "Ungrouped Commands"
-                        for cmd in ungrouped_commands:
-                            if isinstance(cmd, discord.app_commands.ContextMenu):
-                                signature = f"{cmd.name} (Context Menu)"
-                            else:
-                                signature = f"/{cmd.name} {' '.join([f'<{param.name}>' if param.required else f'[{param.name}]' for param in cmd.parameters])}"
-                            embed.add_field(name=signature, value=f"╰- {cmd.description or 'No description available.'}", inline=False)
+                        pages = self.create_command_pages(ungrouped_commands, "Ungrouped Commands")
+                        paginated_view = PaginatedHelpView(pages)
+                        # Add the select menu to the paginated view
+                        paginated_view.add_item(select_menu)
+                        await interaction.response.edit_message(embed=pages[0], view=paginated_view)
                     else:
                         group = discord.utils.get(self.bot.tree.get_commands(), name=selected_option)
                         if group:
-                            embed.title = f"{selected_option.capitalize()} Commands"
-                            for cmd in group.commands:
-                                if isinstance(cmd, discord.app_commands.ContextMenu):
-                                    signature = f"{group.name} {cmd.name} (Context Menu)"
-                                else:
-                                    signature = f"/{group.name} {cmd.name} {' '.join([f'<{param.name}>' if param.required else f'[{param.name}]' for param in cmd.parameters])}"
-                                embed.add_field(
-                                    name=signature,
-                                    value=f"- {cmd.description or 'No description available.'}",
-                                    inline=False
-                                )
-                    
-                    await interaction.response.edit_message(embed=embed)
+                            pages = self.create_command_pages(group.commands, f"{selected_option.capitalize()} Commands")
+                            paginated_view = PaginatedHelpView(pages)
+                            # Add the select menu to the paginated view
+                            paginated_view.add_item(select_menu)
+                            await interaction.response.edit_message(embed=pages[0], view=paginated_view)
 
                 select_menu.callback = select_callback
                 view = discord.ui.View()

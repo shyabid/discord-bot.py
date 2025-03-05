@@ -23,6 +23,7 @@ class Reactionrole(commands.Cog):
 - `?reactionrole type <embedName> <option>`
   - Sets the type of reaction role (unique or multiple)
                 """,
+                
                 color=discord.Color.dark_grey()
             )
             await ctx.reply(embed=help_embed)

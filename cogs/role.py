@@ -1,6 +1,7 @@
 from discord.ext import commands
 import discord
 from discord import app_commands
+from utils import parse_time_string, find_role, find_member
 from typing import (
     Dict,
     List,
@@ -9,6 +10,12 @@ from typing import (
     Tuple,
     Union
 )
+import asyncio
+
+class Role(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot: commands.Bot = bot
+        self.temp_role_tasks = {}
 
 class Role(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
@@ -155,6 +162,65 @@ class Role(commands.Cog):
             await ctx.reply(f"Role `{role.name}` has been updated.")
         else:
             await ctx.reply("No changes were specified for the role.")
+
+    @role.command(
+        name="temporary",
+        description="Give a role to a member temporarily"
+    )
+    @commands.has_permissions(manage_roles=True)
+    @app_commands.describe(
+        user="The user to give the temporary role to",
+        role="The role to give temporarily",
+        duration="Duration"
+    )
+    async def role_temporary(
+        self,
+        ctx: commands.Context,
+        user: discord.Member,
+        role: discord.Role,
+        duration: str
+    ) -> None:
+        
+        duration = parse_time_string(duration)
+        
+        if role in user.roles:
+            await ctx.reply(f"{user.mention} already has the role {role.name}.")
+            return
+
+        await user.add_roles(role)
+        
+        # Store the task
+        if user.id not in self.temp_role_tasks:
+            self.temp_role_tasks[user.id] = {}
+            
+        # Cancel existing task if there is one
+        if role.id in self.temp_role_tasks[user.id]:
+            self.temp_role_tasks[user.id][role.id].cancel()
+            
+        # Create new task
+        task = asyncio.create_task(self.remove_temporary_role(user, role, duration))
+        self.temp_role_tasks[user.id][role.id] = task
+        
+        await ctx.reply(f"Added {role.name} to {user.mention} for {duration} minutes.")
+
+    @commands.command(
+        name="temprole",
+        description="Give a role to a member temporarily (alias for /role temporary)"
+    )
+    @commands.has_permissions(manage_roles=True)
+    async def temprole(
+        self,
+        ctx: commands.Context,
+        user: str,
+        role: str,
+        duration: str
+    ) -> None:
+        
+        user: discord.Member = await find_member(guild=ctx.guild, query=user)
+        role: discord.Role = await find_role(guild=ctx.guild, query=role)
+        duration: int = parse_time_string(duration)
+        
+        await self.role_temporary(ctx, user, role, duration)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Role(bot))

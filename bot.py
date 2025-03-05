@@ -43,7 +43,7 @@ EXTENSIONS: List[str] = [
     'cogs.botto',
     'cogs.prefix',
     'cogs.reminder',
-    # 'cogs.audio',
+    'cogs.audio',
     'cogs.purge',
     'cogs.vccontrol',
     'cogs.gpt',
@@ -51,7 +51,8 @@ EXTENSIONS: List[str] = [
     'cogs.owner',
     'cogs.leveling',
     'cogs.waifu',
-    'cogs.economy'
+    'cogs.economy',
+    'cogs.alias'
     
 ]
 
@@ -177,7 +178,11 @@ class Bot(commands.AutoShardedBot):
     ) -> None:
         if hasattr(context.command, 'on_error'):
             return
-
+        if isinstance(error, commands.CheckFailure):
+            return
+        if isinstance(error, commands.CheckAnyFailure):
+            return
+        
         if isinstance(error, commands.CommandNotFound):
             self.logger.warning(f"CommandNotFound error: {error}")
             return

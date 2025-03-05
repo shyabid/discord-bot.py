@@ -14,19 +14,28 @@ class InteractionsCog(commands.Cog):
             return
         
         content = message.content.split()
-
-        if isinstance(self.bot.command_prefix, list):
-            prefix = self.bot.command_prefix[0]
-        else:
-            prefix = self.bot.command_prefix
-
-        command = content[0].lstrip(prefix) if isinstance(prefix, str) else content[0]
+        if not content:
+            return
+            
+        prefixes = await self.bot.get_prefix(message)
+        
+        if isinstance(prefixes, str):
+            prefixes = [prefixes]
+            
+        command = None
+        for prefix in prefixes:
+            if content[0].startswith(prefix):
+                command = content[0][len(prefix):] 
+                break
+                
+        if not command: 
+            return
+        
         if command in interaction_data and (len(content) < 2 or not message.mentions):
             await message.reply("Mention a user to interact with")
             return
         
         if command in interaction_data and message.mentions:
-            user_mention = content[1]
             user = message.mentions[0] 
             response = requests.get(url=interaction_data[command][0])
             

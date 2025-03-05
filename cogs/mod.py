@@ -110,7 +110,9 @@ class Mod(commands.Cog):
             member == ctx.guild.owner: 
                 "Cannot ban server owner.",
             member == self.bot.user: 
-                "I can't ban myself.",
+                "I can't ban myself. Please use other bots or do manually.",
+            member.bot and member != self.bot.user:
+                "Bots cannot be banned, you have to kick them.",
             member.top_role >= ctx.author.top_role: 
                 "Cannot ban member with higher role.",
             not ctx.guild.me.top_role > member.top_role: 
@@ -168,7 +170,8 @@ class Mod(commands.Cog):
             inline=False
         )
         
-        await self._notify_user(member, "banned", reason, ctx.guild)
+        if not member.bot:
+            await self._notify_user(member, "banned", reason, ctx.guild)
         if deletemsg:
             await ctx.guild.ban(
                 member, 
@@ -294,7 +297,8 @@ class Mod(commands.Cog):
             inline=False
         )
 
-        await self._notify_user(member, "kicked", reason, ctx.guild)
+        if not member.bot:
+            await self._notify_user(member, "kicked", reason, ctx.guild)
         await ctx.guild.kick(member, reason=reason)
         await log_channel.send(embed=kick_log_embed)
         await ctx.reply(f"{member} has been kicked.")
@@ -368,6 +372,8 @@ class Mod(commands.Cog):
             member == ctx.author: "You cannot timeout yourself.",
             member == ctx.guild.owner: "Cannot timeout server owner.",
             member == self.bot.user: "I can't timeout myself.",
+            member.bot and member != self.bot.user:
+                "I cannot timeout other bots.",
             member.top_role >= ctx.author.top_role: "Cannot timeout member with higher role.",
             not ctx.guild.me.top_role > member.top_role: "Cannot timeout member with higher role than me.",
             duration_seconds < 60: "Duration must be at least 1 minute."
@@ -381,13 +387,14 @@ class Mod(commands.Cog):
         timeout_duration = datetime.timedelta(seconds=duration_seconds)
         formatted_duration = utils.format_seconds(duration_seconds)
         
-        await self._notify_user(
-            member, 
-            "timed out", 
-            reason, 
-            ctx.guild, 
-            duration=formatted_duration
-        )
+        if not member.bot:
+            await self._notify_user(
+                member, 
+                "timed out", 
+                reason, 
+                ctx.guild, 
+                duration=formatted_duration
+            )
         
         await member.timeout(timeout_duration, reason=reason)
 

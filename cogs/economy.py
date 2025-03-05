@@ -12,6 +12,9 @@ from utils import parse_time_string  # Import from utils.py instead
 from datetime import datetime
 import json
 
+# mgem = "<a:mgem:1343994099434520690>"
+mgem = "<a:mgem:1344001728424579082>"
+
 def generate_code() -> str:
     """Generate a unique 6-digit code"""
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -87,6 +90,172 @@ class Economy(commands.Cog):
         self.ensure_collections()
         self.daily_cooldowns = {}  # {user_id: last_claim_timestamp}
         self.load_daily_cooldowns()
+        self.mgem_price = 1000  # Price per Mgem
+    
+    async def get_user_mgems(self, user_id: int) -> int:
+        """Get user's Mgem count"""
+        data = self.bot.db["userdata"]["gems"].find_one({"userid": user_id})
+        return data["mgem"] if data else 0
+
+    async def update_user_mgems(self, user_id: int, amount: int) -> None:
+        """Update user's Mgem count"""
+        self.bot.db["userdata"]["gems"].update_one(
+            {"userid": user_id},
+            {"$inc": {"mgem": amount}},
+            upsert=True
+        )
+            
+
+    @commands.hybrid_group(name="mgem", description="Mgem related commands")
+    async def mgem(self, ctx: commands.Context):
+        """
+        Mgem management commands.
+
+        **Usage:**
+        ?mgem <subcommand>
+        /mgem <subcommand>
+
+        **Subcommands:**
+        buy - Buy Mgems with server currency
+        give - Give Mgems to another user
+
+        **Examples:**
+        ?mgem buy 10
+        /mgem give @user 5
+        """
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help(ctx.command)
+
+    @mgem.command(name="buy", description="Buy Mgems with server currency")
+    @app_commands.describe(count="Number of Mgems to buy")
+    async def mgem_buy(self, ctx: commands.Context, count: int) -> None:
+        """
+        Buy Mgems with server currency. Each Mgem costs $1000.
+
+        **Usage:**
+        ?mgem buy <count>
+        /mgem buy <count>
+
+        **Parameters:**
+        count: Number of Mgems to buy
+
+        **Examples:**
+        ?mgem buy 5
+        /mgem buy 10
+        """
+        if count <= 0:
+            await ctx.reply("Please specify a positive number of Mgems to buy!")
+            return
+
+        total_cost = count * self.mgem_price
+        user_balance = await self.get_user_balance(ctx.guild.id, ctx.author.id)
+
+        if user_balance < total_cost:
+            await ctx.reply(f"Insufficient funds! You need ${total_cost:,} to buy {count} Mgems.")
+            return
+
+        # Process purchase
+        await self.update_user_balance(ctx.guild.id, ctx.author.id, -total_cost)
+        await self.update_user_mgems(ctx.author.id, count)
+
+        # Create receipt embed
+        receipt = discord.Embed(
+            title="🧾 Mgem Purchase Receipt",
+            color=discord.Color.green(),
+            timestamp=discord.utils.utcnow()
+        )
+        receipt.add_field(name="Buyer", value=ctx.author.mention, inline=True)
+        receipt.add_field(name="Mgems Bought", value=f"{count} {mgem}", inline=True)
+        receipt.add_field(name="Total Cost", value=f"${total_cost:,}", inline=True)
+        receipt.add_field(name="New Balance", value=f"${user_balance - total_cost:,.2f}", inline=True)
+        receipt.add_field(name="New Mgem Balance", value=f"{await self.get_user_mgems(ctx.author.id)} {mgem}", inline=True)
+
+        await ctx.reply(embed=receipt)
+
+    @mgem.command(name="give", description="Give Mgems to another user")
+    @app_commands.describe(
+        user="The user to give Mgems to",
+        count="Number of Mgems to give"
+    )
+    async def mgem_give(self, ctx: commands.Context, user: discord.Member, count: int) -> None:
+        """
+        Give some of your Mgems to another user.
+
+        **Usage:**
+        ?mgem give <user> <count>
+        /mgem give <user> <count>
+
+        **Parameters:**
+        user: The user to send Mgems to
+        count: How many Mgems to send (must be positive)
+
+        **Examples:**
+        ?mgem give @username 5
+        /mgem give @username 10
+        """
+        if count <= 0:
+            await ctx.reply("Please specify a positive number of Mgems to give!")
+            return
+
+        if user == ctx.author:
+            await ctx.reply("You can't give Mgems to yourself!")
+            return
+
+        sender_mgems = await self.get_user_mgems(ctx.author.id)
+        if sender_mgems < count:
+            await ctx.reply(f"You don't have enough Mgems! You have {sender_mgems} {mgem}")
+            return
+
+        # Transfer the Mgems
+        await self.update_user_mgems(ctx.author.id, -count)
+        await self.update_user_mgems(user.id, count)
+
+        # Create transfer embed
+        transfer = discord.Embed(
+            title="💎 Mgem Transfer",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
+        transfer.add_field(name="From", value=ctx.author.mention, inline=True)
+        transfer.add_field(name="To", value=user.mention, inline=True)
+        transfer.add_field(name="Amount", value=f"{count} {mgem}", inline=True)
+        transfer.add_field(name="Your New Balance", value=f"{await self.get_user_mgems(ctx.author.id)} {mgem}", inline=True)
+
+        await ctx.reply(embed=transfer)
+
+    # Regular command versions for backward compatibility
+    @commands.command(name="buymgem", description="Buy Mgems with server currency")
+    async def buymgem_command(self, ctx: commands.Context, count: int) -> None:
+        """
+        Buy Mgems with server currency. Each Mgem costs $1000.
+
+        **Usage:**
+        ?buymgem <count>
+
+        **Parameters:**
+        count: Number of Mgems to buy
+
+        **Examples:**
+        ?buymgem 5
+        """
+        await self.mgem_buy(ctx, count)
+
+    @commands.command(name="givemgem", description="Give Mgems to another user")
+    async def givemgem_command(self, ctx: commands.Context, user: discord.Member, count: int) -> None:
+        """
+        Give some of your Mgems to another user.
+
+        **Usage:**
+        ?givemgem <user> <count>
+
+        **Parameters:**
+        user: The user to send Mgems to
+        count: How many Mgems to send (must be positive)
+
+        **Examples:**
+        ?givemgem @username 5
+        """
+        await self.mgem_give(ctx, user, count)
 
     def load_daily_cooldowns(self):
         """Load daily cooldowns from database"""
@@ -654,7 +823,8 @@ class Economy(commands.Cog):
                 await message.edit(embeds=embeds, view=ShopView(shop_data, self))
         
         await ctx.reply(f"Removed item with code `{code}` from the shop!")
-
+        
+        
     @commands.hybrid_command(name="balance", description="Check your or another user's balance")
     @app_commands.describe(user="The user to check balance for (optional)")
     async def balance(self, ctx: commands.Context, user: Optional[discord.Member] = None) -> None:
@@ -675,9 +845,10 @@ class Economy(commands.Cog):
         """
         user = user or ctx.author
         balance = await self.get_user_balance(ctx.guild.id, user.id)
+        mgems = await self.get_user_mgems(user.id)
         
         if user == ctx.author:
-            await ctx.reply(f"Your balance: `${balance:.2f}`")
+            await ctx.reply(f"Your balance: `${balance:.2f}` | Mgems: {mgem}{mgems}")
         else:
             await ctx.reply(f"{user.name}'s balance: `${balance:.2f}`")
 
@@ -703,16 +874,16 @@ class Economy(commands.Cog):
         /give @username 50.5
         """
         if amount <= 0:
-            await ctx.reply("❌ Amount must be positive!")
+            await ctx.reply("Amount must be positive!")
             return
             
         if user == ctx.author:
-            await ctx.reply("❌ You can't give money to yourself!")
+            await ctx.reply("You can't give money to yourself!")
             return
 
         sender_balance = await self.get_user_balance(ctx.guild.id, ctx.author.id)
         if sender_balance < amount:
-            await ctx.reply("❌ You don't have enough money!")
+            await ctx.reply("You don't have enough money!")
             return
 
         # Transfer the money
@@ -720,25 +891,6 @@ class Economy(commands.Cog):
         await self.update_user_balance(ctx.guild.id, user.id, amount)
 
         await ctx.reply(f"✅ Successfully sent `${amount:.2f}` to {user.mention}!")
-
-    @commands.hybrid_command(name="buy", description="Buy an item from the shop")
-    @app_commands.describe(code="The item code to buy")
-    async def buy(self, ctx: commands.Context, code: str) -> None:
-        """
-        Purchase an item from the shop using its code.
-
-        **Usage:**
-        ?buy <code>
-        /buy <code>
-
-        **Parameters:**
-        code: The item's unique code from the shop
-
-        **Examples:**
-        ?buy ABC123
-        /buy XYZ789
-        """
-        await self.process_purchase(ctx.interaction, code)
         
         
     @commands.hybrid_command(name="forbes", description="View detailed wealth statistics")
@@ -797,6 +949,21 @@ class Economy(commands.Cog):
         
         embed.add_field(name="🏆 Wealthiest Members", value=rich_list_text or "No data", inline=False)
         
+        # Add Mgem statistics
+        all_gem_users = list(self.bot.db["userdata"]["gems"].find())
+        total_mgems = sum(user.get("mgem", 0) for user in all_gem_users)
+        
+        # Get top 5 Mgem holders
+        rich_gems = sorted(all_gem_users, key=lambda x: x.get("mgem", 0), reverse=True)[:5]
+        
+        gem_stats = f"**Total Mgems**: {mgem}{total_mgems}\n\n**Top Mgem Holders**:\n"
+        for i, data in enumerate(rich_gems, 1):
+            member = ctx.guild.get_member(data["userid"])
+            if member and data.get("mgem", 0) > 0:
+                gem_stats += f"**#{i}** {member.mention}: {mgem}{data['mgem']}\n"
+        
+        embed.add_field(name="💎 Mgem Statistics", value=gem_stats, inline=False)
+
         await ctx.reply(embed=embed)
 
     @commands.command(name="inflate")
@@ -977,7 +1144,7 @@ class Economy(commands.Cog):
                 time_left = 86400 - time_elapsed
                 hours = int(time_left // 3600)
                 minutes = int((time_left % 3600) // 60)
-                await ctx.reply(f"❌ You can claim your daily reward again in `{hours}h {minutes}m`")
+                await ctx.reply(f"You can claim your daily reward again in `{hours}h {minutes}m`")
                 return
 
         # Generate random reward between $2 and $5

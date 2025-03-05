@@ -7,28 +7,62 @@ import time
 import json
 import os
 import asyncio
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 import requests
+from PIL import ImageEnhance
 from io import BytesIO
 import string
 from typing import Optional, List, Dict, Literal, Union
 from pymongo import ReturnDocument
 from utils import PaginationView, WaifuImagePagination
 from datetime import datetime, timezone
+from functools import wraps
+
+mgem = "<a:mgem:1344001728424579082>"
+
+# Set to track users with active commands
+active_users = set()
+
+def check_active_command():
+    async def predicate(ctx):
+        if ctx.author.id in active_users:
+            await ctx.reply("Please wait until your previous command is finished.", ephemeral=True)
+            return False
+        return True
+    return commands.check(predicate)
+
+def track_command():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, ctx, *args, **kwargs):
+            try:
+                active_users.add(ctx.author.id)
+                return await func(self, ctx, *args, **kwargs)
+            finally:
+                active_users.discard(ctx.author.id)
+        return wrapper
+    return decorator
 
 RANK_COLORS = {
     # Default rarity colors
-    'SS': (215, 0, 64),   # red
-    'S': (255, 215, 0),   # Gold
-    'A': (93, 63, 211),   # Purple
-    'B': (8, 143, 143),   # Blue
-    'C': (80, 200, 120),  # green
-    'D': (169, 169, 169), # gray
+    'SS': (215, 0, 64),  
+    'S': (255, 215, 0), 
+    'A': (93, 63, 211), 
+    'B': (8, 143, 143),  
+    'C': (80, 200, 120),  
+    'D': (169, 169, 169),
     
-    # Custom rank colors can be added here
-    'SPECIAL': (255, 128, 0),  # Example: Orange for special rank
-    'LIMITED': (255, 0, 255),  # Example: Pink for limited rank
-    # Add more custom ranks and colors as needed
+    'SPECIAL': (255, 128, 0), 
+    'LIMITED': (255, 0, 255), 
+}
+
+UPGRADE_COSTS = {
+    'D': 1,    
+    'C': 2,   
+    'B': 3,  
+    'A': 4,  
+    'S': 5,  
+    'SS': 10 
 }
 
 def generate_card_code(rarity: str) -> str:
@@ -46,6 +80,20 @@ def get_rarity_color(rarity: str) -> tuple:
     """Get color tuple for rarity"""
     return RANK_COLORS.get(rarity, (255, 255, 255))  # White as default
 
+def get_level_enhanced_color(rarity: str, level: int) -> tuple:
+    """Get color tuple for rarity, enhanced by level"""
+    base_color = list(RANK_COLORS.get(rarity, (255, 255, 255)))
+    
+    # Enhance color saturation and brightness based on level
+    if level == 1:
+        return tuple(base_color)
+    elif level == 2:
+        # Make the color slightly richer for level 2
+        return tuple([min(int(c * 1.2), 255) for c in base_color])
+    elif level >= 3:
+        # Make the color much richer for level 3+
+        return tuple([min(int(c * 1.5), 255) for c in base_color])
+
 def get_rarity_percentage(rarity: str) -> float:
     """Get rarity percentage for display"""
     percentages = {
@@ -61,50 +109,76 @@ def get_rarity_percentage(rarity: str) -> float:
 
 def get_tier_frame(tier: str) -> Image.Image:
     """Get frame overlay for card tier"""
-    frame_paths = {
-        'SS': 'assets/frames/ss_frame.png',
-        'S': 'assets/frames/s_frame.png',
-        'A': 'assets/frames/a_frame.png',
-        'B': 'assets/frames/b_frame.png',
-        'C': 'assets/frames/c_frame.png'
-    }
+
+    # Create default frame if file not found
+    frame = Image.new('RGBA', (600, 960), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(frame)
     
-    try:
-        frame = Image.open(frame_paths.get(tier, frame_paths['C']))
-        return frame.convert('RGBA')
-    except:
-        # Create default frame if file not found
-        frame = Image.new('RGBA', (600, 960), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(frame)
-        
-        # Get color from get_rarity_color and add alpha
-        base_color = get_rarity_color(tier)
-        color = (*base_color, 180)  # Add alpha value of 180
-        
-        # Draw border
-        border_width = 10
-        draw.rectangle([0, 0, 599, 959], outline=color, width=border_width)
-        
-        return frame
+    # Get color from get_rarity_color and add alpha
+    base_color = get_rarity_color(tier)
+    color = (*base_color, 300)  # Add alpha value of 180
+    
+    # Draw border
+    border_width = 10
+    draw.rectangle([0, 0, 599, 959], outline=color, width=border_width)
+    
+    return frame
 
 def load_font(font_path: str, size: int, default_size: int = None) -> ImageFont.FreeTypeFont:
     """Load a font with fallbacks"""
     try:
-        # Try relative path first
         return ImageFont.truetype(f"fonts/{font_path}", size)
     except:
         try:
-            # Try system path
             return ImageFont.truetype(font_path, size)
         except:
             try:
                 # Try DejaVu as Linux fallback
                 return ImageFont.truetype("DejaVuSans.ttf", size if default_size is None else default_size)
             except:
-                # Last resort: default font
                 return ImageFont.load_default()
 
-def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> BytesIO:
+def truncate_text(text, font, max_width):
+    """Truncate text to fit within max_width, adding ... if needed"""
+    if not text:
+        return ""
+    
+    ellipsis = "..."
+    ellipsis_width = font.getlength(ellipsis)
+    
+    # If already fits, no need to truncate
+    if font.getlength(text) <= max_width:
+        return text
+    
+    # Truncate character by character until it fits
+    for i in range(len(text) - 1, 0, -1):
+        truncated = text[:i] + ellipsis
+        if font.getlength(truncated) <= max_width:
+            return truncated
+    
+    # If even a single character doesn't fit
+    return text[0] + ellipsis
+
+def get_level_enhancements(level: int, rarity: str):
+    """Get visual enhancements based on card level"""
+    enhancements = {
+        "glow_intensity": min(level * 0.15, 0.8),  # More glow with higher levels
+        "star_count": level,  # Stars equal to level
+        "corner_radius": min(20 + (level-1) * 5, 40),  # Rounder corners with higher levels
+        "additional_effects": []
+    }
+    
+    # Add special effects based on level
+    if level >= 2:
+        enhancements["additional_effects"].append("inner_glow")
+    if level >= 3:
+        enhancements["additional_effects"].append("sparkles")
+    if level >= 5:
+        enhancements["additional_effects"].append("holographic")
+    
+    return enhancements
+
+def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str, owner_avatar_url: str = None, level: int = 1) -> BytesIO:
     """Create a waifu card image"""
     # Download and open image
     response = requests.get(waifu_data['image_link'])
@@ -114,130 +188,413 @@ def create_waifu_card(waifu_data: dict, card_code: str, owner_name: str) -> Byte
     if img.mode != 'RGB':
         img = img.convert('RGB')
     
-    # Calculate dimensions for 10:16 ratio while maintaining aspect ratio
     target_width = 600
     target_height = 960
     
-    # Calculate scaling factors
     width_ratio = target_width / img.width
     height_ratio = target_height / img.height
     
-    # Use the larger ratio to ensure image fills the frame
     scale_factor = max(width_ratio, height_ratio)
     
-    # Calculate new dimensions
     new_width = int(img.width * scale_factor)
     new_height = int(img.height * scale_factor)
     
-    # Resize image
     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
     
-    # Center crop
     left = (new_width - target_width) // 2
     top = (new_height - target_height) // 2
     img = img.crop((left, top, left + target_width, top + target_height))
     
-    # Create draw object
-    draw = ImageDraw.Draw(img)
+    # Apply level-based enhancements
+    if level > 1:
+        # Enhance image based on level
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(1.0 + (level * 0.02))  # Slight brightness increase
+        
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.0 + (level * 0.03))  # Slight contrast increase
+
+    draw = ImageDraw.Draw(img, 'RGBA')
     
-    # Initialize fonts with better fallback system
-    name_font = load_font("arial.ttf", 56, 24)
-    name_font_bold = load_font("arialbd.ttf", 56, 24)
-    info_font = load_font("arial.ttf", 32, 16)
-    owner_font = load_font("arial.ttf", 20, 12)
+    name_font = load_font("arial.ttf", 50, 24)
+    name_font_bold = load_font("arialbd.ttf", 50, 24)
+    info_font = load_font("arialbd.ttf", 32, 16)
+    owner_font = load_font("arial.ttf", 30, 15)
     rarity_font = load_font("arialbd.ttf", 120, 36)
-    rank_font = load_font("arial.ttf", 48, 20)
-    percent_font = load_font("arialbd.ttf", 42, 18)
+    level_font = load_font("arialbd.ttf", 48, 38)
+    rank_font = load_font("arial.ttf", 40, 14)
+    code_font = load_font("arial.ttf", 18, 12)
+    
     
     # Add gradient overlay (dark bottom to transparent top)
     gradient = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
     gradient_draw = ImageDraw.Draw(gradient)
+
     
-    
-    start_y = target_height - 300  # Top of the gradient area
-    for i in range(300):
-        
-        alpha = int((i / 300) * 255)
-        y_pos = start_y + i
-        gradient_draw.line([(0, y_pos), (target_width, y_pos)], fill=(0, 0, 0, alpha))
-        
-        
-    img.paste(gradient, (0, 0), gradient)
-    # Get rarity color
+    # Get rarity color for effects
     rarity_color = get_rarity_color(waifu_data['rarity_tier'])
     
-    # Draw large rarity tier at top right
+    # Add gradient overlay (dark bottom to transparent top) - standard for all levels
+    gradient = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+    gradient_draw = ImageDraw.Draw(gradient)
+    # Apply level-based effects to gradient based on rarity color
+    start_y = target_height - 400  
+    for i in range(400):
+        alpha = int((i / 400) * (100 + level * 5))  # Increase intensity with level
+        y_pos = start_y + i
+        gradient_draw.line([(0, y_pos), (target_width, y_pos)], fill=(0, 0, 0, alpha))
+    
+    # Add level-based special effects
+    if level >= 2:
+        # Add a subtle glow around the borders
+        glow_intensity = min(0.3 * level, 1)  # Max 80% at level 4+
+        glow_color = tuple([int(c * (1 + glow_intensity)) for c in rarity_color])
+        for i in range(1, 10 + level * 2):
+            thickness = 2 if i < 5 else 1
+            alpha = max(0, int(255 * (1 - (i / (10 + level * 2)))))
+            gradient_draw.rectangle(
+                [i, i, target_width - i, target_height - i], 
+                outline=(*glow_color, alpha), 
+                width=thickness
+            )
+    
+    if level >= 4:
+        # Add subtle patterns based on rarity tier
+        pattern_alpha = 15 + level * 10  # Increases with level
+        pattern_spacing = 30 - level * 2  # Decreases with level
+        
+        # if waifu_data['rarity_tier'] in ['SS', 'S']:
+        #     # Diamond pattern for high tiers
+        #     for x in range(0, target_width, pattern_spacing):
+        #         for y in range(0, target_height, pattern_spacing):
+        #             diamond_size = 5 + level
+        #             points = [
+        #                 (x, y - diamond_size),
+        #                 (x + diamond_size, y),
+        #                 (x, y + diamond_size),
+        #                 (x - diamond_size, y)
+        #             ]
+        #             if all(0 <= px < target_width and 0 <= py < target_height for px, py in points):
+        #                 gradient_draw.polygon(points, fill=(*rarity_color, pattern_alpha))
+        
+        # elif waifu_data['rarity_tier'] in ['A', 'B']:
+        #     # Circle pattern for mid tiers
+        #     for x in range(0, target_width, pattern_spacing):
+        #         for y in range(0, target_height, pattern_spacing):
+        #             circle_radius = 3 + level
+        #             if 0 <= x < target_width and 0 <= y < target_height:
+        #                 gradient_draw.ellipse(
+        #                     [x - circle_radius, y - circle_radius, 
+        #                      x + circle_radius, y + circle_radius],
+        #                     fill=(*rarity_color, pattern_alpha)
+        #                 )
+        
+        # else:  # C, D tiers
+            # Simple dot pattern
+        for x in range(0, target_width, pattern_spacing):
+            for y in range(0, target_height, pattern_spacing):
+                dot_radius = 2 + level // 2
+                if 0 <= x < target_width and 0 <= y < target_height:
+                    gradient_draw.ellipse(
+                        [x - dot_radius, y - dot_radius, 
+                            x + dot_radius, y + dot_radius],
+                        fill=(*rarity_color, pattern_alpha)
+                    )
+
+    if level == 5:
+        # Maximum level special effects
+        
+        # Add animated-looking light rays emanating from center (simulated in static image)
+        center_x, center_y = target_width // 2, target_height // 2
+        ray_count = 12
+        ray_length = min(target_width, target_height) * 0.6
+        ray_width = 15
+        ray_alpha = 100
+        
+        for i in range(ray_count):
+            angle = (i / ray_count) * 2 * math.pi
+            end_x = center_x + int(math.cos(angle) * ray_length)
+            end_y = center_y + int(math.sin(angle) * ray_length)
+            
+            # Draw a line with color based on rarity
+            for w in range(-ray_width//2, ray_width//2):
+                # Calculate perpendicular offset
+                wx = int(-math.sin(angle) * w)
+                wy = int(math.cos(angle) * w)
+                
+                # Draw ray with fading alpha
+                for t in range(10, 100, 10):
+                    lerp = t / 100
+                    x = int(center_x + (end_x - center_x) * lerp) + wx
+                    y = int(center_y + (end_y - center_y) * lerp) + wy
+                    
+                    if 0 <= x < target_width and 0 <= y < target_height:
+                        fade_alpha = int(ray_alpha * (1 - lerp))
+                        gradient_draw.point([x, y], fill=(*rarity_color, fade_alpha))
+    
+    img.paste(gradient, (0, 0), gradient)
+    
+    # Get rarity color and draw large rarity tier at top right - standard for all levels
     rarity_text = waifu_data['rarity_tier']
     rarity_bbox = draw.textbbox((0, 0), rarity_text, font=rarity_font)
     rarity_width = rarity_bbox[2] - rarity_bbox[0]
-    
-    # Draw rarity tier with outline
     rarity_pos = (target_width - rarity_width - 30, 20)
-    for offset in [(2,2), (-2,-2), (2,-2), (-2,2)]:
+    
+    # Draw rank number below rarity if it exists (standard for all levels)
+    if waifu_data.get('popularity_rank'):
+        rank_text = f"#{waifu_data['popularity_rank']}"
+        rank_bbox = draw.textbbox((0, 0), rank_text, font=rank_font)
+        rank_width = rank_bbox[2] - rank_bbox[0]
+        # Center the rank below the rarity text
+        rank_x = rarity_pos[0] + (rarity_width - rank_width) // 2
+        rank_y = rarity_pos[1] + rarity_bbox[3] - rarity_bbox[1] + 10
+        # Draw rank with outline for better visibility
+        for offset in [(1,1), (-1,-1), (1,-1), (-1,1)]:
+            draw.text((rank_x + offset[0], rank_y + offset[1] + 35), 
+                     rank_text, font=rank_font, fill=(0, 0, 0))
+        draw.text((rank_x, rank_y + 35), rank_text, font=rank_font, fill=(255, 255, 255))
+
+    # Enhanced outline for rarity text based on level
+    outline_strength = 2 + level // 2
+    for offset in [(outline_strength,outline_strength), (-outline_strength,-outline_strength), 
+                   (outline_strength,-outline_strength), (-outline_strength,outline_strength)]:
         draw.text((rarity_pos[0]+offset[0], rarity_pos[1]+offset[1]), 
                  rarity_text, font=rarity_font, fill=(0, 0, 0))
+    
+    # Add glow to rarity text based on level
+    if level >= 2:
+        glow_color = (*rarity_color, 150)
+        for i in range(1, 3 + level):
+            offset = i * 0.5
+            for dx, dy in [(offset,0), (-offset,0), (0,offset), (0,-offset)]:
+                draw.text((rarity_pos[0]+dx, rarity_pos[1]+dy), 
+                         rarity_text, font=rarity_font, fill=(*rarity_color, 90 // i))
+                         
+    
+    # Draw the main rarity text on top
     draw.text(rarity_pos, rarity_text, font=rarity_font, fill=rarity_color)
+    
+    # Draw level indicator at top left corner with enhanced styling based on level
+    level_text = f"LEVEL {level}"
+    level_bbox = draw.textbbox((0, 0), level_text, font=level_font)
+    level_pos = (40, 35)
+    
+    # Add background for level text with fixed size
+    level_bg_padding = 10 
+    level_bg_height = 50  
+    level_bg_width = 220  
+    
+    # Fixed rectangle size
+    level_bg_rect = [
+        30, 
+        30,
+        30 + level_bg_width, 
+        30 + level_bg_height + 12
+    ]
+    
+    # Draw level background with rarity color
+    bg_alpha = min(100 + level * 10, 150)  # Increases with level
+    draw.rectangle(level_bg_rect, fill=(*rarity_color, bg_alpha))
+    
+    # Define fixed star positions based on the level rectangle
+    star_size = 30
+    star_spacing = 33
+    star_y = level_bg_rect[3] + 10  # Fixed position below the level rectangle
+    star_x_start = level_bg_rect[0] + ((level_bg_width + 20) - (star_spacing * level)) // 2
+    # Add border to level background
+    
+    
+    border_color = (*rarity_color, 200)
+    border_width = level  # Thicker border for higher levels
+    draw.rectangle(level_bg_rect, outline=border_color, width=border_width)
+    
+    # Draw level text with enhanced outline
+    outline_size = 2
+    for offset in [(outline_size,outline_size), (-outline_size,-outline_size), 
+                  (outline_size,-outline_size), (-outline_size,outline_size)]:
+        draw.text((level_pos[0]+offset[0], level_pos[1]+offset[1]), 
+                 level_text, font=level_font, fill=(0, 0, 0))
+    
+    # Level text color gets brighter with level
+    level_text_color = (255, 255, 255)
+    if level >= 3:
+        # Pulsating effect for higher levels (simulated in static image)
+        for i in range(1, 3):
+            alpha = 150 - i * 40
+            offset = i * 1.5
+            draw.text((level_pos[0], level_pos[1] - offset), 
+                     level_text, font=level_font, fill=(*rarity_color, alpha))
+    
+    draw.text(level_pos, level_text, font=level_font, fill=level_text_color)
+    
+    # Add star indicators based on level
+    star_size = 30
+    star_spacing = 33
+    star_y = level_pos[1] + level_bg_height + 30
+    star_x_start = level_pos[0] + (level_bg_width - (star_spacing * level)) // 2
+    
+    # Draw stars
+    for i in range(level):
+        star_x = star_x_start + i * star_spacing
+        
+        # Calculate star points
+        points = []
+        for j in range(10):
+            angle = math.pi/2 + j * math.pi/5
+            radius = star_size/2 if j % 2 == 0 else star_size/4
+            points.append((
+                star_x + radius * math.cos(angle),
+                star_y + radius * math.sin(angle)
+            ))
+        
+        # Draw star outline
+        draw.polygon(points, outline=(0, 0, 0, 200), fill=(*rarity_color, 220))
+        
+        # Add glow effect to stars
+        star_img = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+        star_draw = ImageDraw.Draw(star_img)
+        star_draw.polygon(points, fill=(*rarity_color, 180))
+        star_img = star_img.filter(ImageFilter.GaussianBlur(2 + level // 2))
+        img.paste(star_img, (0, 0), star_img)
+        
+        # Redraw star over blur for sharper appearance
+        draw.polygon(points, outline=(0, 0, 0, 200), fill=(*rarity_color, 220))
 
-    # Draw character rank below tier
-    rank = waifu_data.get('popularity_rank')  
-    rank_text = f"#{rank}"
-    rank_bbox = draw.textbbox((0, 0), rank_text, font=rank_font)
-    rank_width = rank_bbox[2] - rank_bbox[0]
     
-    # Center rank under rarity tier
-    rank_x = rarity_pos[0] + (rarity_width - rank_width) // 2
-    rank_y = rarity_pos[1] + 130
     
-    # Draw rank with shadow
-    draw.text((rank_x+2, rank_y+2), rank_text, font=rank_font, fill=(0, 0, 0))
-    draw.text((rank_x, rank_y), rank_text, font=rank_font, fill=(255, 255, 255))
-
-    # # Draw rarity percentage at top left with improved styling
-    # percentage = get_rarity_percentage(waifu_data['rarity_tier'])
-    # percentage_text = f"{percentage:.2f}%"
-    
-    # # Position for percentage
-    # percent_pos = (25, 25)
-    
-    # # Draw drop shadow for percentage
-    # shadow_offset = 2
-    # for dx, dy in [(1,1), (1,-1), (-1,1), (-1,-1)]:
-    #     draw.text((percent_pos[0] + dx * shadow_offset, percent_pos[1] + dy * shadow_offset),
-    #              percentage_text, font=percent_font, fill=(0, 0, 0))
-    
-    # # Draw main percentage text in rarity color
-    # draw.text(percent_pos, percentage_text, font=percent_font, fill=rarity_color)
-
     # Draw character name at bottom
     name_text = waifu_data['name']
     name_position = (30, target_height - 140)
     
-    # Draw outline
-    for offset in [(2,2), (-2,-2), (2,-2), (-2,2)]:
+    # Use a consistent outline size (1) for character name
+    name_outline_size = 1
+    for offset in [(name_outline_size,name_outline_size), (-name_outline_size,-name_outline_size), 
+                  (name_outline_size,-name_outline_size), (-name_outline_size,name_outline_size)]:
         draw.text((name_position[0]+offset[0], name_position[1]+offset[1]), 
                  name_text, font=name_font_bold, fill=(0, 0, 0))
-        
+    
+    if level >= 3:
+        name_glow_color = (*rarity_color, 120)
+        name_img = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+        name_draw = ImageDraw.Draw(name_img)
+        name_draw.text(name_position, name_text, font=name_font_bold, fill=name_glow_color)
+        name_img = name_img.filter(ImageFilter.GaussianBlur(3))
+        img.paste(name_img, (0, 0), name_img)
+    
     draw.text(name_position, name_text, font=name_font_bold, fill=(255, 255, 255))
     
-    # Draw card code and anime name at bottom
-    from_text = f"{waifu_data.get('series', 'Unknown')}"
-    draw.text((30, target_height - 80), from_text, font=info_font, fill=(255, 255, 255))
+    # Draw series name below character name with the same outline size as character name
+    series_text = waifu_data.get('series', 'Unknown')
+    series_position = (32, target_height - 80)
     
-    owner_text = f"{owner_name}"
-    owner_bbox = draw.textbbox((0, 0), owner_text, font=owner_font)
-    owner_width = owner_bbox[2] - owner_bbox[0]
-    draw.text((target_width - owner_width - 20, target_height - 45), 
-              owner_text, font=owner_font, fill=(255, 255, 255))
+    # Use consistent outline size for series name (same as character name)
+    series_outline_size = 1
+    for offset in [(series_outline_size,series_outline_size), (-series_outline_size,-series_outline_size), 
+                  (series_outline_size,-series_outline_size), (-series_outline_size,series_outline_size)]:
+        draw.text((series_position[0]+offset[0], series_position[1]+offset[1]), 
+                 series_text, font=info_font, fill=(0, 0, 0))
     
-    # Add tier frame
+    draw.text(series_position, series_text, font=info_font, fill=(255, 255, 255))
+    
+    y_pos = target_height - 45
+    
+    # Draw owner name instead of card code at bottom right
+    owner_display = f"{owner_name}"
+    owner_bottom_position = (target_width - draw.textbbox((0, 0), owner_display, font=code_font)[2] - 30, y_pos)
+    
+    # Add black outline to owner name at bottom
+    owner_outline_size = 1
+    for offset in [(owner_outline_size,owner_outline_size), (-owner_outline_size,-owner_outline_size), 
+                  (owner_outline_size,-owner_outline_size), (-owner_outline_size,owner_outline_size)]:
+        draw.text((owner_bottom_position[0]+offset[0], owner_bottom_position[1]+offset[1]), 
+                 owner_display, font=code_font, fill=(0, 0, 0))
+    
+    draw.text(owner_bottom_position, owner_display, font=code_font, fill=(255, 255, 255))
+    
+    # Get frame for card based on tier
     frame = get_tier_frame(waifu_data['rarity_tier'])
+    
+    # Enhance frame based on level
+    if level >= 2:
+        # Create an enhanced frame with rarity color glow
+        enhanced_frame = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+        enhanced_draw = ImageDraw.Draw(enhanced_frame)
+        
+        # Border width increases with level
+        border_width = 10 + level * 2
+        enhanced_draw.rectangle([0, 0, 599, 959], outline=(*rarity_color, 255), width=border_width)
+        
+        # Note: Corner triangle flourishes have been removed
+        
+        # Apply blur for glow effect
+        enhanced_frame = enhanced_frame.filter(ImageFilter.GaussianBlur(2 + level))
+        
+        # Paste the enhanced frame
+        img.paste(enhanced_frame, (0, 0), enhanced_frame)
+        
+        # Redraw sharp border on top
+        img_draw = ImageDraw.Draw(img)
+        img_draw.rectangle([0, 0, 599, 959], outline=(*rarity_color, 255), width=border_width//2)
+    
+    img = img.convert('RGBA')
     img.paste(frame, (0, 0), frame)
+    
+    # Add holographic effect for max level
+    if level == 5:
+        holo = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+        holo_draw = ImageDraw.Draw(holo)
+        
+        # Create rainbow pattern
+        for y in range(0, target_height, 4):
+            # Create rainbow gradient based on y position
+            hue = (y / target_height) * 360
+            r, g, b = hsv_to_rgb(hue/360, 0.8, 1.0)
+            holo_draw.line([(0, y), (target_width, y)], fill=(r, g, b, 25))
+        
+        # Apply light distortion pattern
+        for i in range(20):
+            x = random.randint(0, target_width)
+            y = random.randint(0, target_height)
+            size = random.randint(50, 200)
+            holo_draw.ellipse(
+                [x-size//2, y-size//2, x+size//2, y+size//2],
+                fill=(255, 255, 255, 10)
+            )
+        
+        img.paste(holo, (0, 0), holo)
     
     # Save to BytesIO
     output = BytesIO()
     img.save(output, 'PNG')
     output.seek(0)
     return output
+
+# Add helper function for holographic effect
+def hsv_to_rgb(h, s, v):
+    """Convert HSV color to RGB color"""
+    if s == 0.0:
+        return (int(v * 255), int(v * 255), int(v * 255))
+    
+    i = int(h * 6)
+    f = (h * 6) - i
+    p = v * (1 - s)
+    q = v * (1 - s * f)
+    t = v * (1 - s * (1 - f))
+    
+    if i % 6 == 0:
+        r, g, b = v, t, p
+    elif i % 6 == 1:
+        r, g, b = q, v, p
+    elif i % 6 == 2:
+        r, g, b = p, v, t
+    elif i % 6 == 3:
+        r, g, b = p, q, v
+    elif i % 6 == 4:
+        r, g, b = t, p, v
+    else:
+        r, g, b = v, p, q
+    
+    return (int(r * 255), int(g * 255), int(b * 255))
 
 def calculate_card_value(rarity: str, popularity_rank: int) -> int:
     """Calculate card value based on rarity and popularity rank"""
@@ -355,16 +712,28 @@ class Waifu(commands.Cog):
             'A': {
                 'tiers': ['SS', 'S', 'A'],
                 'weights': [1, 10, 100]
+            },
+            # Add explicit entries for all rarity levels to prevent KeyError
+            'SS': {
+                'tiers': ['SS'],
+                'weights': [1]
+            },
+            'S': {
+                'tiers': ['S'],
+                'weights': [1]
+            },
+            'D': {
+                'tiers': ['D'],
+                'weights': [1]
             }
         }
         if cost_type is None:
             prob = probabilities['normal']
         else:
+            # Safely get probability or default to normal
             cost_type = cost_type.upper()
-            if cost_type in probabilities:
-                prob = probabilities[cost_type]
-            else:
-                prob = probabilities['normal']
+            prob = probabilities.get(cost_type, probabilities['normal'])
+            
         return random.choices(prob['tiers'], weights=prob['weights'], k=1)[0]
 
     async def get_random_waifu(self, cost_type: Optional[str] = None) -> tuple[dict, str]:
@@ -417,6 +786,8 @@ class Waifu(commands.Cog):
 
     @commands.hybrid_command(name="draw", aliases=["roll"], description="Roll for a random waifu card")
     @app_commands.describe(rarity="Minimum rarity tier to roll for (A/B/C)")
+    @check_active_command()
+    @track_command()
     async def draw(self, ctx: commands.Context, rarity: Optional[str] = None) -> None:
         """
         Waifu Card Collection System
@@ -512,15 +883,20 @@ class Waifu(commands.Cog):
 
     @commands.hybrid_command(name="waifu", description="View waifu cards")
     @app_commands.describe(query="Rarity tier (SS/S/A/B/C/D) or card code")
+    @check_active_command()
+    @track_command()
     async def waifu(self, ctx: commands.Context, query: Optional[str] = None) -> None:
         """View waifu cards that have been collected."""
+        # Add placeholder message
+        placeholder = await ctx.reply("Loading waifu card...")
+        
         try:
             if not query:
                 # Get random card from all cards
                 cursor = self.collection.aggregate([{"$sample": {"size": 1}}])
                 card = cursor.to_list(length=1)
                 if not card:
-                    return await ctx.reply("No cards have been drawn yet!")
+                    return await placeholder.edit(content="No cards have been drawn yet!")
                 card = card[0]
             
             elif query.upper() in self.available_rarities:
@@ -531,26 +907,49 @@ class Waifu(commands.Cog):
                 ])
                 card = cursor.to_list(length=1)
                 if not card:
-                    return await ctx.reply(f"No {query.upper()}-tier cards have been drawn yet!")
+                    return await placeholder.edit(content=f"No {query.upper()}-tier cards have been drawn yet!")
                 card = card[0]
             
             else:
                 # Try to find specific card by code
                 card = self.collection.find_one({"serial_number": query})
                 if not card:
-                    return await ctx.reply("Card not found!")
+                    return await placeholder.edit(content="Card not found!")
             
             # Get original waifu data
             waifu_data = self.waifu_data.get(str(card['waifu_id']), {})
             waifu_data['rarity_tier'] = card['rarity']
             waifu_data['popularity_rank'] = card['rank']
             
-            # Get owner name
+            # Get owner name - USE DISPLAY NAME INSTEAD OF USERNAME
             owner = await self.bot.fetch_user(card['owner_id'])
-            owner_name = owner.name if owner else "Unknown"
+            owner_name = "Unknown"
+            if owner:
+                # Try to get display name from guild member
+                if ctx.guild:
+                    member = ctx.guild.get_member(owner.id)
+                    if member:
+                        owner_name = member.display_name
+                    else:
+                        owner_name = owner.display_name  # Fall back to global display name
+                else:
+                    owner_name = owner.display_name
             
-            # Create card image
-            card_image = create_waifu_card(waifu_data, card['serial_number'], owner_name)
+            # Get card data
+            level = card.get("level", 1)  # Get level, default to 1
+        
+            # Get owner avatar URL
+            owner_avatar_url = owner.display_avatar.url if owner else None
+            
+            # Create card image with level and avatar
+            card_image = await asyncio.to_thread(
+                create_waifu_card,
+                waifu_data, 
+                card['serial_number'], 
+                owner_name,
+                owner_avatar_url,
+                level
+            )
 
             # Get rarity color for embed
             rarity_rgb = get_rarity_color(card['rarity'])
@@ -564,13 +963,12 @@ class Waifu(commands.Cog):
             embed.add_field(name="Value", value=f"${value:,}", inline=True)
             
             # Send image and embed separately
-            card_image.seek(0)
             file = discord.File(fp=card_image, filename="card.png")
-            await ctx.reply(file=file, embed=embed) 
+            await placeholder.edit(content=None, attachments=[file], embed=embed) 
                     
         except Exception as e:
             print(f"Error in waifu command: {e}")
-            await ctx.reply("An error occurred while fetching the card.")
+            await placeholder.edit(content="An error occurred while fetching the card.")
 
     class WaifuImageView(discord.ui.View):
         def __init__(self, cards: list, author: discord.Member):
@@ -627,6 +1025,8 @@ class Waifu(commands.Cog):
             await interaction.response.edit_message(attachments=[file], view=self)
 
     @commands.hybrid_command(name="waifulist")
+    @check_active_command()
+    @track_command()
     async def waifulist(self, ctx: commands.Context, query: str = None):
         """Shows list of all waifus or specific waifus"""
         if isinstance(query, discord.Member):
@@ -654,7 +1054,7 @@ class Waifu(commands.Cog):
             view = WaifuImagePagination(card_data_list, ctx.author)
             first_card = card_data_list[0]["image"]
             file = discord.File(fp=first_card, filename="card.png")
-            message = await ctx.reply(file=file, view=view)
+            message = await ctx.reply(attahments=[file], view=view)
             view.message = message
             return
 
@@ -675,7 +1075,7 @@ class Waifu(commands.Cog):
             card_image = create_waifu_card(waifu, "DEMO-000000", "Demo Card")
             
             file = discord.File(fp=card_image, filename="card.png")
-            await ctx.reply(f"Found {len(matches)} matches. Showing first match:", file=file)
+            await ctx.reply(f"Found {len(matches)} matches. Showing first match:", attachments=[file])
             return
 
         # Default behavior - show all waifus list
@@ -727,16 +1127,21 @@ class Waifu(commands.Cog):
             await ctx.reply("An error occurred while fetching the waifu list.", ephemeral=True)
 
     @commands.command(name="inventory")
+    @check_active_command()
+    @track_command()
     async def inventory(self, ctx: commands.Context, target: Optional[discord.Member] = None) -> None:
         """Display a user's waifu cards inventory."""
+        # Add placeholder message
+        placeholder = await ctx.reply("Loading inventory...")
+        
         member = target if target is not None else ctx.author
-        import asyncio
+
         # Obtain all cards for the member (using to_thread to avoid blocking)
         cursor = self.collection.find({"owner_id": member.id})
         cards = await asyncio.to_thread(lambda: list(cursor))
         
         if not cards:
-            return await ctx.reply(f"{member.display_name} does not have any waifu cards yet.")
+            return await placeholder.edit(content=f"{member.display_name} does not have any waifu cards yet.")
         
         # Group cards by (waifu_id, name, rarity, rank)
         groups = {}
@@ -777,7 +1182,7 @@ class Waifu(commands.Cog):
             
             for serial in serials:
                 card = self.collection.find_one({"serial_number": serial})
-                card_value = calculate_card_value(rarity, rank)
+                card_value = calculate_card_value(rarity, card.get("rank"))
                 tier_value += card_value
                 tier_values[rarity] += card_value
                 total_value += card_value
@@ -821,9 +1226,11 @@ class Waifu(commands.Cog):
             embeds.append(embed)
         
         view = PaginationView(embeds, ctx.author)
-        await ctx.reply(embed=embeds[0], view=view)
+        await placeholder.edit(content=None, embed=embeds[0], view=view)
 
     @commands.command(name="sell")
+    @check_active_command()
+    @track_command()
     async def sell(self, ctx: commands.Context, arg: str) -> None:
         """
         Sell a card by card code or sell all cards in a given tier.
@@ -836,7 +1243,6 @@ class Waifu(commands.Cog):
         - D: 60-90% of $3
         Higher ranked cards (lower rank number) sell for better values.
         """
-        import asyncio
         economy_cog = self.bot.get_cog('Economy')
         if not economy_cog:
             return await ctx.reply("Economy system is not available!")
@@ -914,6 +1320,8 @@ class Waifu(commands.Cog):
             await ctx.reply(embed=embed)
 
     @commands.command(name="lock")
+    @check_active_command()
+    @track_command()
     async def lock(self, ctx: commands.Context, card_code: str) -> None:
         """Lock a card so it cannot be sold."""
         result = self.collection.update_one(
@@ -926,6 +1334,8 @@ class Waifu(commands.Cog):
             await ctx.reply("Card not found or already locked.")
 
     @commands.command(name="unlock")
+    @check_active_command()
+    @track_command()
     async def unlock(self, ctx: commands.Context, card_code: str) -> None:
         """Unlock a previously locked card."""
         result = self.collection.update_one(
@@ -937,7 +1347,144 @@ class Waifu(commands.Cog):
         else:
             await ctx.reply("Card not found or already unlocked.")
 
+    @commands.command(name="upgrade")
+    @check_active_command()
+    @track_command()
+    async def upgrade(self, ctx: commands.Context, serial: str) -> None:
+        """
+        Upgrade a card's level using Mgems.
+        
+        Upgrade costs per level:
+        D - Level 1→2→3: 1 Mgem each
+        C - Level 1→2→3: 2 Mgems each
+        B - Level 1→2→3: 5 Mgems each
+        A - Level 1→2→3: 10 Mgems each
+        S - Level 1→2→3: 50 Mgems each
+        SS - Level 1→∞: Starts at 50 Mgems, increases 150% per level
+        """
+        # Add placeholder message
+        placeholder = await ctx.reply("Processing upgrade...")
+        
+        # Get the card
+        card = self.collection.find_one({"serial_number": serial, "owner_id": ctx.author.id})
+        if not card:
+            return await placeholder.edit(content="Card not found or you don't own it!")
+
+        # Get current level (default to 1 if not set)
+        current_level = card.get("level", 1)
+        current_rarity = card["rarity"]
+
+        # Calculate upgrade cost based on rarity
+        if current_rarity == "SS":
+            # SS cards: 150% increase per level
+            base_cost = UPGRADE_COSTS['SS']
+            upgrade_cost = int(base_cost * (2.5 ** (current_level - 1)))
+        else:
+            # All other cards: fixed cost per level until level 3
+            if current_level >= 3:
+                # Ready for tier upgrade
+                rarity_order = ["D", "C", "B", "A", "S", "SS"]
+                current_index = rarity_order.index(current_rarity)
+                if current_index >= len(rarity_order) - 1:
+                    return await placeholder.edit(content="This card is already at maximum tier!")
+                upgrade_cost = UPGRADE_COSTS[current_rarity]
+            else:
+                # Regular level upgrade - use rarity's fixed cost
+                upgrade_cost = UPGRADE_COSTS[current_rarity]
+
+        # Check if user has enough Mgems
+        economy_cog = self.bot.get_cog('Economy')
+        if not economy_cog:
+            return await placeholder.edit(content="Economy system is not available!")
+        
+        user_mgems = await economy_cog.get_user_mgems(ctx.author.id)
+        if user_mgems < upgrade_cost:
+            return await placeholder.edit(content=f"You need {upgrade_cost} {mgem} to upgrade this card! (You have {user_mgems})")
+
+        # Process upgrade
+        update_data = {}
+        if current_level >= 3 and current_rarity != "SS":
+            # Tier upgrade
+            rarity_order = ["D", "C", "B", "A", "S", "SS"]
+            current_index = rarity_order.index(current_rarity)
+            new_rarity = rarity_order[current_index + 1]
+            
+            update_data = {
+                "rarity": new_rarity,
+                "level": 1
+            }
+            card["rarity"] = new_rarity  # Update for card display
+            card["level"] = 1
+        else:
+            # Level upgrade
+            new_level = current_level + 1
+            update_data = {
+                "level": new_level
+            }
+            card["level"] = new_level
+
+        # Update card and deduct Mgems
+        self.collection.update_one(
+            {"_id": card["_id"]},
+            {"$set": update_data}
+        )
+        await economy_cog.update_user_mgems(ctx.author.id, -upgrade_cost)
+
+        # Get waifu data for card display
+        waifu_data = self.waifu_data.get(str(card['waifu_id']), {})
+        waifu_data['rarity_tier'] = card['rarity']
+        waifu_data['popularity_rank'] = card['rank']
+        
+        # Get owner data for card display - USE DISPLAY NAME
+        owner = await self.bot.fetch_user(card['owner_id'])
+        owner_name = "Unknown"
+        if owner:
+            if ctx.guild:
+                member = ctx.guild.get_member(owner.id)
+                if member:
+                    owner_name = member.display_name
+                else:
+                    owner_name = owner.display_name
+            else:
+                owner_name = owner.display_name
+                
+        owner_avatar_url = owner.display_avatar.url if owner else None
+
+        # Create card image
+        card_image = await asyncio.to_thread(
+            create_waifu_card,
+            waifu_data,
+            card['serial_number'],
+            owner_name,
+            owner_avatar_url,
+            card["level"]
+        )
+
+        # Create response embed
+        embed = discord.Embed(
+            title="Card Upgraded! 🎉",
+            color=discord.Color.green()
+        )
+        
+        if "rarity" in update_data:
+            embed.description = f"Your {current_rarity}-tier card has been upgraded to {new_rarity}-tier!"
+        else:
+            embed.description = f"Card level increased to {update_data['level']}!"
+            
+        embed.add_field(name="Cost", value=f"{upgrade_cost} {mgem}", inline=True)
+        embed.add_field(name="Remaining Mgems", value=f"{user_mgems - upgrade_cost} {mgem}", inline=True)
+
+        if current_rarity == "SS":
+            next_cost = int(upgrade_cost * 2.5)
+            embed.add_field(name="Next Upgrade Cost", value=f"{next_cost} {mgem}", inline=True)
+
+        # Send response with card image
+        file = discord.File(fp=card_image, filename="card.png")
+        await placeholder.edit(content=None, embed=embed, attachments=[file])
+
     @commands.hybrid_group(name="trade")
+    @check_active_command()
+    @track_command()
     async def trade(self, ctx: commands.Context) -> None:
         """Trade commands for waifu card system"""
         if ctx.invoked_subcommand is None:
@@ -949,6 +1496,8 @@ class Waifu(commands.Cog):
         your_card="Your card's serial number",
         their_card="Their card's serial number"
     )
+    @check_active_command()
+    @track_command()
     async def trade_create(
         self, 
         ctx: commands.Context, 
@@ -1023,6 +1572,8 @@ class Waifu(commands.Cog):
 
     @trade.command(name="accept", description="Accept a pending trade offer")
     @app_commands.describe(target="User who sent you the trade offer")
+    @check_active_command()
+    @track_command()
     async def trade_accept(
         self, 
         ctx: commands.Context,
@@ -1035,6 +1586,9 @@ class Waifu(commands.Cog):
         -----------
         target: Optional user who sent the trade (required if you have multiple pending trades)
         """
+        # Add placeholder message
+        placeholder = await ctx.reply("Processing trade...")
+        
         trade_collection = self.bot.db["waifu"]["trades"]
         query = {"offeree": ctx.author.id, "status": "pending"}
         
@@ -1044,7 +1598,7 @@ class Waifu(commands.Cog):
         trade = trade_collection.find_one(query)
         
         if not trade:
-            return await ctx.reply("No pending trade offers found.")
+            return await placeholder.edit(content="No pending trade offers found.")
             
         offerer_card = self.collection.find_one({
             "owner_id": trade["offerer"],
@@ -1060,7 +1614,7 @@ class Waifu(commands.Cog):
                 {"_id": trade["_id"]},
                 {"$set": {"status": "cancelled"}}
             )
-            return await ctx.reply("Trade cancelled: One or both cards are no longer available.")
+            return await placeholder.edit(content="Trade cancelled: One or both cards are no longer available.")
             
         # Execute trade
         self.collection.update_one(
@@ -1086,10 +1640,12 @@ class Waifu(commands.Cog):
             color=discord.Color.green()
         )
         
-        await ctx.reply(embed=embed)
+        await placeholder.edit(content=None, embed=embed)
 
     @trade.command(name="decline", description="Decline a pending trade offer")
     @app_commands.describe(target="User who sent you the trade offer")
+    @check_active_command()
+    @track_command()
     async def trade_decline(
         self,
         ctx: commands.Context,
@@ -1119,6 +1675,8 @@ class Waifu(commands.Cog):
             await ctx.reply("No pending trade offers found.")
 
     @trade.command(name="list", description="List all pending trade offers")
+    @check_active_command()
+    @track_command()
     async def trade_list(self, ctx: commands.Context) -> None:
         """List all pending trades involving you"""
         trade_collection = self.bot.db["waifu"]["trades"]
@@ -1163,6 +1721,8 @@ class Waifu(commands.Cog):
         await ctx.reply(embed=embeds[0], view=view)
 
     @commands.command(name="gift")
+    @check_active_command()
+    @track_command()
     async def gift(self, ctx: commands.Context, target: discord.Member, card_code: str) -> None:
         """
         Gift a card to another user.
@@ -1177,8 +1737,13 @@ class Waifu(commands.Cog):
         await ctx.reply(f"Card {card_code} has been gifted to {target.mention}.")
 
     @commands.command(name="waifulb", aliases=["waifu-lb", "waifu-leaderboard"])
+    @check_active_command()
+    @track_command()
     async def waifu_leaderboard(self, ctx: commands.Context):
         """Shows the top 5 users with highest value waifu collections"""
+        # Add placeholder message
+        placeholder = await ctx.reply("Loading leaderboard...")
+        
         # Get all cards and group by owner
         pipeline = [
             {"$match": {"owner_id": {"$exists": True}}},
@@ -1238,7 +1803,7 @@ class Waifu(commands.Cog):
                 inline=False
             )
         
-        await ctx.reply(embed=embed)
+        await placeholder.edit(content=None, embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Waifu(bot))

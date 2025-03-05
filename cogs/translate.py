@@ -144,10 +144,11 @@ class Translate(commands.Cog):
 
         channel_id = message.channel.id
         guild_id = message.guild.id
-
-        webhook_data = self.bot.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
-        if not webhook_data:
-            return
+        try:
+            webhook_data = self.bot.db[str(guild_id)]["autotranslate"].find_one({"channel_id": channel_id})
+        except:
+            if not webhook_data:
+                return
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f"https://api.popcat.xyz/translate?to=en&text={message.content}") as response:
