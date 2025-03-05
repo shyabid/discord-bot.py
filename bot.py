@@ -139,13 +139,11 @@ class Bot(commands.AutoShardedBot):
 
     async def on_ready(self) -> None:
         try:
-            # only syncs in test guild for faster sync
-            # will remove later when it's production ready
-            guild: Optional[discord.Guild] = self.get_guild(1292422671480651856)
-            if guild:
+            # Sync commands to all guilds
+            for guild in self.guilds:
                 self.tree.copy_global_to(guild=guild)
                 await self.tree.sync(guild=guild)
-                self.logger.info("Successfully synced commands to test guild")
+                self.logger.info(f"Successfully synced commands to guild: {guild.name} (ID: {guild.id})")
         except Exception as e:
             self.logger.error(f'Failed to sync: {e}')
         self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
