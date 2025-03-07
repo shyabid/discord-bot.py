@@ -29,8 +29,18 @@ class Botto(commands.Cog):
         description="Returns with a Pong!"
     )
     async def ping(self, ctx: commands.Context):
-        await ctx.reply("pong")
+        start_time = time.perf_counter()
+        message = await ctx.reply("Pinging...")
+        end_time = time.perf_counter()
         
+        websocket_latency = self.bot.latency * 1000
+        message_latency = (end_time - start_time) * 1000
+        total_latency = websocket_latency + message_latency
+        
+        await message.edit(content=f"Pong! 🏓\n"
+                                    f"Bot Processing Time: {message_latency:.2f}ms\n"
+                                    f"WebSocket Latency: {websocket_latency:.2f}ms\n"
+                                    f"Total Latency: {total_latency:.2f}ms")
     @grbt.command(
         name="say",
         description="say something through the bot"
