@@ -1,6 +1,7 @@
 from discord.ext import commands
 import discord
 from discord import app_commands
+import json
 
 class Prefix(commands.Cog):
     def __init__(self, bot):
@@ -38,16 +39,12 @@ class Prefix(commands.Cog):
         if not self.validate_prefix(prefix):
             return
 
-        loop = self.bot.loop
-        await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].update_one(
-                {"_id": "prefix"},
-                {"$set": {"prefix": [prefix]}},
-                upsert=True
-            )
+        cursor = self.bot.prefix_db.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO guild_prefixes (guild_id, prefixes) VALUES (?, ?)",
+            (str(ctx.guild.id), json.dumps([prefix]))
         )
-
+        self.bot.prefix_db.commit()
         await ctx.reply(f"Prefix changed to {prefix}")
 
     @prefix.command(
@@ -56,11 +53,9 @@ class Prefix(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def prefix_reset(self, ctx: commands.Context):
-        loop = self.bot.loop
-        await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].delete_one({"_id": "prefix"})
-        )
+        cursor = self.bot.prefix_db.cursor()
+        cursor.execute("DELETE FROM guild_prefixes WHERE guild_id = ?", (str(ctx.guild.id),))
+        self.bot.prefix_db.commit()
         await ctx.reply("Prefix reset to default.")
 
     @prefix.command(
@@ -68,14 +63,13 @@ class Prefix(commands.Cog):
         description="List all prefixes for the bot."
     )
     async def prefix_list(self, ctx: commands.Context):
-        loop = self.bot.loop
-        prefixes = await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].find_one({"_id": "prefix"})
-        )
+        cursor = self.bot.prefix_db.cursor()
+        cursor.execute("SELECT prefixes FROM guild_prefixes WHERE guild_id = ?", (str(ctx.guild.id),))
+        result = cursor.fetchone()
+        
+        prefixes = json.loads(result[0]) if result else ["?"]
         embed = discord.Embed(title="Bot Prefixes", color=discord.Color.dark_grey())
-        prefix_list = "\n".join([f"{i+1}. {prefix}" for i, prefix in enumerate(prefixes.get('prefix', []))]) if prefixes else "No custom prefixes set."
-        embed.description = prefix_list if prefix_list else "No custom prefixes set."
+        embed.description = "\n".join([f"{i+1}. {prefix}" for i, prefix in enumerate(prefixes)])
         await ctx.reply(embed=embed)
 
     @prefix.command(
@@ -85,21 +79,28 @@ class Prefix(commands.Cog):
     @app_commands.describe(prefix="The prefix to remove.")
     async def prefix_remove(self, ctx: commands.Context, prefix: str):
         if not self.validate_prefix(prefix):
-            return 
+            return
 
-        loop = self.bot.loop
-        result = await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].update_one(
-                {"_id": "prefix"},
-                {"$pull": {"prefix": prefix}}
-            )
-        )
+        cursor = self.bot.prefix_db.cursor()
+        cursor.execute("SELECT prefixes FROM guild_prefixes WHERE guild_id = ?", (str(ctx.guild.id),))
+        result = cursor.fetchone()
         
-        if result.modified_count == 0:
+        if not result:
             await ctx.reply(f"Prefix '{prefix}' was not found in the list.")
-        else:
-            await ctx.reply(f"Prefix '{prefix}' has been removed.")
+            return
+            
+        prefixes = json.loads(result[0])
+        if prefix not in prefixes:
+            await ctx.reply(f"Prefix '{prefix}' was not found in the list.")
+            return
+            
+        prefixes.remove(prefix)
+        cursor.execute(
+            "UPDATE guild_prefixes SET prefixes = ? WHERE guild_id = ?",
+            (json.dumps(prefixes), str(ctx.guild.id))
+        )
+        self.bot.prefix_db.commit()
+        await ctx.reply(f"Prefix '{prefix}' has been removed.")
     
     @prefix.command(
         name="add",
@@ -108,26 +109,23 @@ class Prefix(commands.Cog):
     @app_commands.describe(prefix="The prefix to add.")
     async def prefix_add(self, ctx: commands.Context, prefix: str):
         if not self.validate_prefix(prefix):
-            return 
-
-        loop = self.bot.loop
-        existing_prefixes = await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].find_one({"_id": "prefix"})
-        )
-        if existing_prefixes and prefix in existing_prefixes.get("prefix", []):
-            await ctx.reply(f"Prefix '{prefix}' already exists.")
             return
 
-        await loop.run_in_executor(
-            None, 
-            lambda: self.bot.db[str(ctx.guild.id)]["config"].update_one(
-                {"_id": "prefix"},
-                {"$push": {"prefix": prefix}},
-                upsert=True
-            )
+        cursor = self.bot.prefix_db.cursor()
+        cursor.execute("SELECT prefixes FROM guild_prefixes WHERE guild_id = ?", (str(ctx.guild.id),))
+        result = cursor.fetchone()
+        
+        prefixes = json.loads(result[0]) if result else []
+        if prefix in prefixes:
+            await ctx.reply(f"Prefix '{prefix}' already exists.")
+            return
+            
+        prefixes.append(prefix)
+        cursor.execute(
+            "INSERT OR REPLACE INTO guild_prefixes (guild_id, prefixes) VALUES (?, ?)",
+            (str(ctx.guild.id), json.dumps(prefixes))
         )
-
+        self.bot.prefix_db.commit()
         await ctx.reply(f"Prefix '{prefix}' has been added.")
     
 

@@ -7,6 +7,8 @@ import logging
 import aiohttp
 import discord
 import traceback
+import sqlite3
+import json
 
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
@@ -68,8 +70,16 @@ class Bot(commands.AutoShardedBot):
             enable_debug_events=True,
             case_insensitive=True
         )
-        self.openai_key: str = os.getenv('OPENAI_KEY')
         self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
+        self.prefix_db = sqlite3.connect('data/prefix.db')
+        self.prefix_db.execute("""
+            CREATE TABLE IF NOT EXISTS guild_prefixes (
+                guild_id TEXT PRIMARY KEY,
+                prefixes TEXT NOT NULL
+            )
+        """)
+        self.prefix_db.commit()
+
         self.owner_id = os.getenv('OWNER_ID')
         self.start_time = time.time()
         self.session: Optional[aiohttp.ClientSession] = None
@@ -83,18 +93,22 @@ class Bot(commands.AutoShardedBot):
         self, 
         message: discord.Message
     ) -> List[str]:
-        if message.guild:
-            prefix_doc: dict = self.db[str(message.guild.id)]["config"].find_one({"_id": "prefix"})
-            if not prefix_doc or not prefix_doc.get("prefix"):
-                self.db[str(message.guild.id)]["config"].update_one(
-                    {"_id": "prefix"},
-                    {"$set": {"prefix": ["?"]}},
-                    upsert=True
-                )
-                return ["?"]
-            return prefix_doc["prefix"]
-        else:
+        if not message.guild:
             return ["?"]
+            
+        cursor = self.prefix_db.cursor()
+        cursor.execute("SELECT prefixes FROM guild_prefixes WHERE guild_id = ?", (str(message.guild.id),))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.execute(
+                "INSERT OR REPLACE INTO guild_prefixes (guild_id, prefixes) VALUES (?, ?)",
+                (str(message.guild.id), json.dumps(["?"]))
+            )
+            self.prefix_db.commit()
+            return ["?"]
+            
+        return json.loads(result[0])
         
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
@@ -318,6 +332,8 @@ class Bot(commands.AutoShardedBot):
         await super().close()
         if self.session:
             await self.session.close()
+        if self.prefix_db:
+            self.prefix_db.close()
         self.logger.info("Bot closed successfully")
 
     async def start(

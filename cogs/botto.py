@@ -35,7 +35,6 @@ class Botto(commands.Cog):
         
         duration = ((end_time - start_time) * 1000) - (ctx.bot.latency * 2000)
         await message.edit(content=f"Pong! 🏓\nCPU Latency: {duration:.2f}ms\nWebSocket Latency: {self.bot.latency * 1000:.2f}ms")
-        
     @grbt.command(
         name="say",
         description="say something through the bot"
