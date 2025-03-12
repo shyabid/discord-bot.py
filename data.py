@@ -1,8 +1,4 @@
 
-bot_description = """
-Just a bot.
-
-"""
 
 emoji = {
     "tag": "<:tag:1296482912107102301>",

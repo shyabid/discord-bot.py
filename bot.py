@@ -1,94 +1,39 @@
-from __future__ import annotations
-
-import os
-import time
-import data
-import logging
-import aiohttp
-import discord
-import traceback
-import sqlite3
-import json
-
-from typing import Optional, List, Dict, Any
-from dotenv import load_dotenv
-import typing
-from difflib import SequenceMatcher
-from collections import Counter
 from discord.ext import commands
-from slash import *
-from cogs.translate import translate_ctx_menu
-from pymongo import MongoClient
-from pymongo.server_api import ServerApi
-import os
-from dotenv import load_dotenv; load_dotenv()
+from discord import app_commands
+import discord
+import asyncio
+from difflib import SequenceMatcher
+import os 
+from dotenv import load_dotenv
+from db_manager import DBManager
+from typing import Union, List, Optional
+import traceback
+import json
+load_dotenv()
 
-EXTENSIONS: List[str] = [
-    'cogs.translate',
-    'cogs.interactions',    
-    'cogs.afk',
-    'cogs.embed',
-    'cogs.role',
-    'cogs.welcomer',
-    'cogs.news',
-    'cogs.misc',
-    'cogs.quiz',
-    'cogs.fun',
-    'cogs.anime',
-    'cogs.help',
-    'cogs.auto',
-    'cogs.user',
-    'cogs.snipe',
-    'cogs.mod',
-    'cogs.meta',
-    'cogs.goblet',
-    'cogs.botto',
-    'cogs.prefix',
-    'cogs.reminder',
-    'cogs.audio',
-    'cogs.purge',
-    'cogs.vccontrol',
-    'cogs.gpt',
-    # 'cogs.chat',
-    'cogs.owner',
-    'cogs.leveling',
-    'cogs.waifu',
-    'cogs.economy',
-    'cogs.alias'
-    
-]
-
-# Setup logging using discord's prebuilt logging
-discord.utils.setup_logging()
-class Bot(commands.AutoShardedBot):
-    def __init__(self) -> None:
+class Morgana(commands.AutoShardedBot):
+    def __init__(self, plguins: list[commands.Cog] = None):
         super().__init__(
-            description=data.bot_description,
             command_prefix=self.get_prefix,
-            allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True),
+            description=os.getenv("description"),
+            help_attrs=dict(hidden=True),
+            chunk_guilds_at_startup=False,
+            heartbeat_timeout=100.0,
+            allowed_mentions=discord.AllowedMentions(
+                roles=False, 
+                everyone=False, 
+                users=True
+            ),
             intents=discord.Intents.all(),
             enable_debug_events=True,
-            case_insensitive=True
+            
         )
-        self.db = MongoClient(os.getenv("DATABASE"), server_api=ServerApi('1'))
-        self.prefix_db = sqlite3.connect('data/prefix.db')
-        self.prefix_db.execute("""
-            CREATE TABLE IF NOT EXISTS guild_prefixes (
-                guild_id TEXT PRIMARY KEY,
-                prefixes TEXT NOT NULL
-            )
-        """)
-        self.prefix_db.commit()
-
-        self.owner_id = os.getenv('OWNER_ID')
-        self.start_time = time.time()
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.command_stats: Counter[str] = Counter()
-        self.socket_stats: Counter[str] = Counter()
-        self.command_types_used: Counter[discord.ChannelType] = Counter()
-        self.logger: logging.Logger = logging.getLogger('bot')
-        self.logger.info("Bot instance initialized successfully")
-
+        self.db = DBManager()
+        self.owner_id = 1076064221210628118
+        self.token = os.getenv("token")
+        self.plugins = plguins
+        self.status_messages = []
+    
     async def get_prefix(
         self, 
         message: discord.Message
@@ -96,249 +41,105 @@ class Bot(commands.AutoShardedBot):
         if not message.guild:
             return ["?"]
             
-        cursor = self.prefix_db.cursor()
-        cursor.execute("SELECT prefixes FROM guild_prefixes WHERE guild_id = ?", (str(message.guild.id),))
-        result = cursor.fetchone()
+        return self.db.get_guild_prefixes(str(message.guild.id))
+    
+    async def setup_hook(self):
+        for _ in self.plugins: await self.load_extension(_)
         
-        if not result:
-            cursor.execute(
-                "INSERT OR REPLACE INTO guild_prefixes (guild_id, prefixes) VALUES (?, ?)",
-                (str(message.guild.id), json.dumps(["?"]))
-            )
-            self.prefix_db.commit()
-            return ["?"]
+    async def on_ready(self):
+        # for guild in self.guilds:
+        #     self.tree.clear_commands(guild=guild)
+        #     await self.tree.sync(guild=guild)
             
-        return json.loads(result[0])
-        
-    async def setup_hook(self) -> None:
-        self.session = aiohttp.ClientSession()
-        self.logger.info("aiohttp ClientSession created")
-        
-        for extension in EXTENSIONS:
-            try:
-                await self.load_extension(extension)
-                self.logger.info(f"Successfully loaded extension: {extension}")
-            except Exception as e:
-                self.logger.error(f'Failed to load extension {extension}: {e}')
-                traceback.print_exc()
-        
-        group_commands: List[commands.Group] = [
-            HolyGroup(name="holy", description="holy commands")
-        ]
-
-        for group in group_commands:
-            try:
-                self.tree.add_command(group)
-                self.logger.info(f"Successfully added slash group: {group.name}")
-            except Exception as e:
-                self.logger.error(f'Failed to add slash group {group.name}: {e}')
-        
-        try:
-            self.tree.context_menu(name='Translate')(translate_ctx_menu)
-            self.logger.info("Successfully added Translate context menu")
-        except Exception as e:
-            self.logger.error(f'Failed to add context_menu: {e}')
-        
-        try:
-            self.tree.command(name="interactions", description="interact with a discord user through GIFs")(interactioncmd)
-            self.logger.info("Successfully added interactions and help slash commands")
-        except Exception as e:
-            self.logger.error(f'Failed to add slash command: {e}')
-        
-        await self.change_presence(status=discord.Status.dnd)
-        self.logger.info("Bot presence changed to DND")
-            
-
-        self.logger.info("Finished the setup_hook function")
-
-    async def on_ready(self) -> None:
-        try:
-            # Sync commands to all guilds
-            for guild in self.guilds:
-                self.tree.copy_global_to(guild=guild)
-                await self.tree.sync(guild=guild)
-                self.logger.info(f"Successfully synced commands to guild: {guild.name} (ID: {guild.id})")
-        except Exception as e:
-            self.logger.error(f'Failed to sync: {e}')
-        self.logger.info(f'Bot ready: {self.user} (ID: {self.user.id})')
-
-
+        #     self.tree.copy_global_to(guild=guild)
+        await self.tree.sync()
+        ...
     async def on_command_completion(
         self, 
-        context: commands.Context
+        ctx: commands.Context
     ) -> None:
-        if not isinstance(context.command, (commands.HybridCommand, commands.HybridGroup)):
-            return
-
-        full_command_name: str = context.command.name
-        executed_command: str = full_command_name
-
-        if context.guild is not None:
-            self.logger.info(
-                f"Executed {executed_command} command in {context.guild.name} (ID: {context.guild.id}) by {context.author} (ID: {context.author.id})"
-            )
-        else:
-            self.logger.info(
-                f"Executed {executed_command} command by {context.author} (ID: {context.author.id}) in DMs"
-            )
-
-
+        self.db.count_up_command(ctx.command.qualified_name)
+        ttl_cmd_use_cnt = self.db.get_command_usage(ctx.command.name)
+    
     async def on_command_error(
         self, 
         context: commands.Context, 
         error: commands.CommandError
     ) -> None:
-        if hasattr(context.command, 'on_error'):
-            return
-        if isinstance(error, commands.CheckFailure):
-            return
-        if isinstance(error, commands.CheckAnyFailure):
-            return
-        
+        if hasattr(context.command, 'on_error'): return
         if isinstance(error, commands.CommandNotFound):
-            self.logger.warning(f"CommandNotFound error: {error}")
             return
 
-        if isinstance(error, commands.MissingPermissions):
-            await context.reply(f"You are missing the permission(s) `{', '.join(error.missing_permissions)}` to execute this command!")
 
+        elif isinstance(error, commands.CommandOnCooldown):
+            await context.reply(f"This command is on cooldown. Try again in {error.retry_after:.2f} seconds")
+        elif isinstance(error, commands.errors.MissingPermissions):
+            missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_permissions]
+            await context.reply(f"You are missing `{', '.join(missing)}` permission(s) to execute this command!")
         elif isinstance(error, commands.BotMissingPermissions):
-            await context.reply(f"I am missing the permission(s) `{', '.join(error.missing_permissions)}` to fully perform this command!")
-       
+            missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_permissions]
+            await context.reply(f"I am missing the permission(s) `{', '.join(missing)}` to fully perform this command!")
         elif isinstance(error, commands.MissingRequiredArgument):
-            command_name = context.command.qualified_name
-            params = [f"<{param}>" for param in context.command.clean_params]
-            prefixes = await self.get_prefix(context.message)
-            usage = f"{prefixes[0]}{command_name} {' '.join(params)}"
-            missing_param = str(error.param)
-            await context.reply(f"```\n{usage}\n```")
-
+            await self._handle_missing_arg(context, error)
         elif isinstance(error, commands.BadArgument):
             await context.reply(f"{str(error)}")
-
+        elif isinstance(error, commands.ArgumentParsingError):
+            await context.reply(f"{error.argument if hasattr(error, 'argument') else str(error)}")
         elif isinstance(error, commands.MissingRole):
             await context.reply("You are missing the required role to use this command.")
-
         elif isinstance(error, commands.MissingAnyRole):
             await context.reply("You are missing one of the required roles to use this command.")
-
         elif isinstance(error, commands.NSFWChannelRequired):
             await context.reply("This command can only be used in NSFW channels.")
-        
         elif isinstance(error, commands.BadUnionArgument):
-            await context.reply(f"Could not parse argument: {str(error)}")
-
+            await context.reply(f"Could not parse argument '{error.param.name}'. Accepted types: {', '.join([t.__name__ for t in error.converters])}")
         elif isinstance(error, commands.BadLiteralArgument):
-            await context.reply(f"Invalid option. Allowed values are: {', '.join(map(str, error.literals))}")
+            await context.reply(f"Invalid option for '{error.param.name}'. Allowed values are: {', '.join(map(str, error.literals))}")
+    
         
         else:
             try:
                 owner = await self.fetch_user(1076064221210628118)
-                
                 embed = discord.Embed(
                     title="Bot Error",
-                    description=f"An error occurred in the bot{'.' if not context else f': {context.command.brief}'}",
                     color=discord.Color.red(),
                     timestamp=discord.utils.utcnow()
                 )
                 
-                embed.add_field(name="Error Type", value=type(error).__name__, inline=False)
-                embed.add_field(name="Error Message", value=str(error), inline=False)
+                embed.add_field(name="Error Details", value=str(error)[:1024], inline=False)
+                
+                tb_string = ''.join(traceback.format_tb(error.__traceback__))
                 
                 if context.command:
-                    embed.add_field(name="Command", value=context.command.name, inline=False)
+                    embed.add_field(name="Command", value=context.command.name, inline=True)
                 
                 if context:
                     embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
-                    embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=False)
-                    embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=False)
+                    embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=True)
+                    embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=True)
         
-                await owner.send(embed=embed)
-            except Exception as e:
-                print(f"Failed to send error message to owner: {e}")
-        self.logger.warning(f"Command error handled: {type(error).__name__}")
-
-    async def find_member(
-        self,
-        guild: discord.Guild,
-        query: str
-    ) -> typing.Optional[discord.Member]:
-        if query.isdigit():
-            member = guild.get_member(int(query))
-            if member:
-                return member
-
-        members = await guild.query_members(query, limit=1)
-        if members:
-            return members[0]
-        
-        query_lower = query.lower()
-        best_match = None
-        best_score = 0
-
-        for member in guild.members:
-            if query_lower in member.name.lower():
-                score = len(query_lower) / len(member.name)
-                if score > best_score:
-                    best_match = member
-                    best_score = score
+                await owner.send(embed=embed, content=f"```py\n{tb_string}\n```")
+                await context.reply("An error occurred while executing the command. The developers have been notified.")
+            except Exception as e: print(str(e))
             
-            if member.nick and query_lower in member.nick.lower():
-                score = len(query_lower) / len(member.nick)
-                if score > best_score:
-                    best_match = member
-                    best_score = score
 
-        return best_match
-
-    async def find_role(
-        self,
-        guild: discord.Guild, 
-        query: str
-    ) -> typing.Optional[discord.Role]:
-
-        def calculate_similarity(a: str, b: str) -> float:
-            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-        best_match: typing.Optional[discord.Role] = None
-        best_score: float = 0
-
-        for role in guild.roles:
-            if query in str(role.id):
-                return role
-
-            role_name_score = calculate_similarity(query, role.name)
-            if role_name_score > best_score:
-                best_match = role
-                best_score = role_name_score
-
-        return best_match
-
-
-    async def on_command(
-        self, 
-        ctx: commands.Context
-    ) -> None:
-
-        self.command_stats[ctx.command.qualified_name] += 1
-        message: discord.Message = ctx.message
-        if isinstance(message.channel, discord.TextChannel):
-            self.command_types_used[message.channel.type] += 1
-        self.logger.info(f"Command '{ctx.command.qualified_name}' invoked")
-
+    async def _handle_missing_arg(self, context, error):    
+        command_name = context.command.qualified_name
+        params = [f"`{param}`" for param in context.command.clean_params]
+        prefixes = await self.get_prefix(context.message)
+        usage = f"{prefixes[0]}{command_name} {' '.join(params)}"
+        await context.reply(f"Missing required argument(s)\n> {usage}")
+    
     async def close(
         self
     ) -> None:
+        """Cleanup and close the bot."""
         await super().close()
-        if self.session:
-            await self.session.close()
-        if self.prefix_db:
-            self.prefix_db.close()
-        self.logger.info("Bot closed successfully")
+        if hasattr(self, 'db'):
+            self.db.close()
 
-    async def start(
+    def run(
         self
     ) -> None:
-        load_dotenv()
-        await super().start(os.getenv('TOKEN'))
-        self.logger.info("Bot started successfully")
+        """Start the bot."""
+        super().run(os.getenv('TOKEN'))
