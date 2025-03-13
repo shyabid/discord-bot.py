@@ -4,3 +4,6 @@ app.log
 roadmap.txt
 test.py
 **/data
+**/venv/
+**/.venv/
+database.db
