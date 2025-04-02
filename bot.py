@@ -29,7 +29,7 @@ class Morgana(commands.AutoShardedBot):
             
         )
         self.db = DBManager()
-        self.owner_id = 1076064221210628118
+        self.owner_id = 821755569248403487
         self.token = os.getenv("token")
         self.plugins = plguins
         self.status_messages = []
@@ -99,7 +99,7 @@ class Morgana(commands.AutoShardedBot):
         
         else:
             try:
-                owner = await self.fetch_user(1076064221210628118)
+                owner = await self.fetch_user(821755569248403487)
                 embed = discord.Embed(
                     title="Bot Error",
                     color=discord.Color.red(),
