@@ -101,7 +101,7 @@ class Botto(commands.Cog):
     async def status(self, ctx: commands.Context, status: Literal['online', 'idle', 'dnd', 'invisible'], activity: str, *, text: str):
         await ctx.defer()
         
-        if not ctx.author.id == 876869802948452372:
+        if not ctx.author.id == 821755569248403487:
             raise commands.MissingPermissions(["bot_owner"])
         
         status_mapping = {
@@ -130,7 +130,7 @@ class Botto(commands.Cog):
         await ctx.defer()
         
         try:
-            bot_owner = await self.bot.fetch_user(876869802948452372)
+            bot_owner = await self.bot.fetch_user(821755569248403487)
             
             embed = discord.Embed(
                 title="New Suggestion/Bug Report",
@@ -263,7 +263,7 @@ class Botto(commands.Cog):
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
         
-        if not ctx.author.id == 876869802948452372:
+        if not ctx.author.id == 821755569248403487:
             raise commands.MissingPermissions(["bot_owner"])
 
         async with aiohttp.ClientSession() as session:
