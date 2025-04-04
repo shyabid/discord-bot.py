@@ -13,8 +13,14 @@ from discord.ext import tasks
 import time
 import traceback
 from collections import defaultdict
+import os
+import json
 
 start_time: float = time.time()
+
+
+with open('config.json') as f:
+    config = json.load(f)
 
 class Botto(commands.Cog):
     def __init__(self, bot: Morgana):
@@ -101,7 +107,7 @@ class Botto(commands.Cog):
     async def status(self, ctx: commands.Context, status: Literal['online', 'idle', 'dnd', 'invisible'], activity: str, *, text: str):
         await ctx.defer()
         
-        if not ctx.author.id == 821755569248403487:
+        if not ctx.author.id == config["owner"]:
             raise commands.MissingPermissions(["bot_owner"])
         
         status_mapping = {
@@ -130,7 +136,7 @@ class Botto(commands.Cog):
         await ctx.defer()
         
         try:
-            bot_owner = await self.bot.fetch_user(821755569248403487)
+            bot_owner = await self.bot.fetch_user(config["owner"][0])
             
             embed = discord.Embed(
                 title="New Suggestion/Bug Report",
@@ -228,7 +234,7 @@ class Botto(commands.Cog):
             
     async def _fetch_commits(self) -> str:
         """Fetch the latest commits from GitHub."""
-        repo_url = "https://api.github.com/repos/shyabid/discord-bot.py/commits"
+        repo_url = "https://api.github.com/repos/Empester/discord-bot.py/commits"
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -263,7 +269,7 @@ class Botto(commands.Cog):
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
         
-        if not ctx.author.id == 821755569248403487:
+        if not ctx.author.id == config["owner"][0]:
             raise commands.MissingPermissions(["bot_owner"])
 
         async with aiohttp.ClientSession() as session:

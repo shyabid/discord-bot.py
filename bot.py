@@ -11,6 +11,9 @@ import traceback
 import json
 load_dotenv()
 
+with open('config.json') as f:
+    config = json.load(f)
+
 class Morgana(commands.AutoShardedBot):
     def __init__(self, plguins: list[commands.Cog] = None):
         super().__init__(
@@ -29,7 +32,7 @@ class Morgana(commands.AutoShardedBot):
             
         )
         self.db = DBManager()
-        self.owner_id = 821755569248403487
+        self.owner_id = config["owner"]
         self.token = os.getenv("token")
         self.plugins = plguins
         self.status_messages = []
@@ -99,7 +102,7 @@ class Morgana(commands.AutoShardedBot):
         
         else:
             try:
-                owner = await self.fetch_user(821755569248403487)
+                owner = await self.fetch_user(config["owner"][0])
                 embed = discord.Embed(
                     title="Bot Error",
                     color=discord.Color.red(),

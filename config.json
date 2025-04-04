@@ -1,0 +1,6 @@
+// Let it be known: do not add more owner IDs here, as it may break some functions.
+// Currently, if you decide to add more owners, it will work because I added [0] after config["owner"].
+// However, if you plan to support multiple owners, please modify the code accordingly.
+{
+    "owner": 821755569248403487
+}
