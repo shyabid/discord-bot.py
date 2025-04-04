@@ -13,8 +13,16 @@ from discord.ext import tasks
 import time
 import traceback
 from collections import defaultdict
+import os
+import json
+import pytz
+json
 
 start_time: float = time.time()
+
+
+with open('config.json') as f:
+    config = json.load(f)
 
 class Botto(commands.Cog):
     def __init__(self, bot: Morgana):
@@ -101,7 +109,7 @@ class Botto(commands.Cog):
     async def status(self, ctx: commands.Context, status: Literal['online', 'idle', 'dnd', 'invisible'], activity: str, *, text: str):
         await ctx.defer()
         
-        if not ctx.author.id == 876869802948452372:
+        if not ctx.author.id == config["owner"]:
             raise commands.MissingPermissions(["bot_owner"])
         
         status_mapping = {
@@ -130,7 +138,7 @@ class Botto(commands.Cog):
         await ctx.defer()
         
         try:
-            bot_owner = await self.bot.fetch_user(876869802948452372)
+            bot_owner = await self.bot.fetch_user(config["owner"])
             
             embed = discord.Embed(
                 title="New Suggestion/Bug Report",
@@ -240,10 +248,9 @@ class Botto(commands.Cog):
                             sha = commit['sha'][:7]
                             message = commit['commit']['message'].split('\n')[0][:50]
                             author = commit['commit']['author']['name']
-                            date = discord.utils.format_dt(
-                                datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z')),
-                                style='R'
-                            )
+                            utc_time = datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z'))
+                            local_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["timezone"]))
+                            date = discord.utils.format_dt(local_time, style='R')
                             
                             commit_url = commit['html_url']
                             author_url = commit['author']['html_url'] if commit['author'] else None
@@ -263,7 +270,7 @@ class Botto(commands.Cog):
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
         
-        if not ctx.author.id == 876869802948452372:
+        if not ctx.author.id == config["owner"]:
             raise commands.MissingPermissions(["bot_owner"])
 
         async with aiohttp.ClientSession() as session:

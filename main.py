@@ -44,6 +44,10 @@ bot.status_messages = [
     ("watching", "{channel_count} channels"),
     ("watching", "{role_count} roles"),
     ("watching", "{emoji_count} emojis"),
-    ("playing", "{command_count} commands")
+    ("playing", "{command_count} commands"),
+    ("watching", "JoJo's Bizzare Adventures"),
+    ("custom", "I use Arch btw"),
+    ("playing", "War Thunder")
+    
 ]
 bot.run()
