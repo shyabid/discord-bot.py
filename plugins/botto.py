@@ -236,7 +236,7 @@ class Botto(commands.Cog):
             
     async def _fetch_commits(self) -> str:
         """Fetch the latest commits from GitHub."""
-        repo_url = "https://api.github.com/repos/Empester/discord-bot.py/commits"
+        repo_url = "https://api.github.com/repos/shyabid/discord-bot.py/commits"
         
         try:
             async with aiohttp.ClientSession() as session:
