@@ -102,7 +102,7 @@ class Morgana(commands.AutoShardedBot):
         
         else:
             try:
-                owner = await self.fetch_user(config["owner"][0])
+                owner = await self.fetch_user(config["owner"])
                 embed = discord.Embed(
                     title="Bot Error",
                     color=discord.Color.red(),

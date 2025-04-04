@@ -136,7 +136,7 @@ class Botto(commands.Cog):
         await ctx.defer()
         
         try:
-            bot_owner = await self.bot.fetch_user(config["owner"][0])
+            bot_owner = await self.bot.fetch_user(config["owner"])
             
             embed = discord.Embed(
                 title="New Suggestion/Bug Report",
@@ -269,7 +269,7 @@ class Botto(commands.Cog):
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
         
-        if not ctx.author.id == config["owner"][0]:
+        if not ctx.author.id == config["owner"]:
             raise commands.MissingPermissions(["bot_owner"])
 
         async with aiohttp.ClientSession() as session:

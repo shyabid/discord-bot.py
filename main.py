@@ -47,7 +47,6 @@ bot.status_messages = [
     ("playing", "{command_count} commands"),
     ("watching", "JoJo's Bizzare Adventures"),
     ("custom", "I use Arch btw"),
-    ("watching", "LFS compiling"),
     ("playing", "War Thunder")
     
 ]
