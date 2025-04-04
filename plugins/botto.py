@@ -15,6 +15,8 @@ import traceback
 from collections import defaultdict
 import os
 import json
+import pytz
+json
 
 start_time: float = time.time()
 
@@ -246,10 +248,9 @@ class Botto(commands.Cog):
                             sha = commit['sha'][:7]
                             message = commit['commit']['message'].split('\n')[0][:50]
                             author = commit['commit']['author']['name']
-                            date = discord.utils.format_dt(
-                                datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z')),
-                                style='R'
-                            )
+                            utc_time = datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z'))
+                            local_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["timezone"]))
+                            date = discord.utils.format_dt(local_time, style='R')
                             
                             commit_url = commit['html_url']
                             author_url = commit['author']['html_url'] if commit['author'] else None
