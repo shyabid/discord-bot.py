@@ -16,13 +16,10 @@ from collections import defaultdict
 import os
 import json
 import pytz
-json
+from dotenv import load_dotenv
+load_dotenv
 
 start_time: float = time.time()
-
-
-with open('config.json') as f:
-    config = json.load(f)
 
 class Botto(commands.Cog):
     def __init__(self, bot: Morgana):
@@ -109,7 +106,7 @@ class Botto(commands.Cog):
     async def status(self, ctx: commands.Context, status: Literal['online', 'idle', 'dnd', 'invisible'], activity: str, *, text: str):
         await ctx.defer()
         
-        if not ctx.author.id == config["owner"]:
+        if not ctx.author.id == os.getenv("owner"):
             raise commands.MissingPermissions(["bot_owner"])
         
         status_mapping = {
@@ -138,7 +135,7 @@ class Botto(commands.Cog):
         await ctx.defer()
         
         try:
-            bot_owner = await self.bot.fetch_user(config["owner"])
+            bot_owner = await self.bot.fetch_user(os.getenv("owner"))
             
             embed = discord.Embed(
                 title="New Suggestion/Bug Report",
@@ -270,7 +267,7 @@ class Botto(commands.Cog):
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
         
-        if not ctx.author.id == config["owner"]:
+        if not ctx.author.id == os.getenv("owner"):
             raise commands.MissingPermissions(["bot_owner"])
 
         async with aiohttp.ClientSession() as session:
