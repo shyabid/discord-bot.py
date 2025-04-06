@@ -246,7 +246,7 @@ class Botto(commands.Cog):
                             message = commit['commit']['message'].split('\n')[0][:50]
                             author = commit['commit']['author']['name']
                             utc_time = datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z'))
-                            local_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["timezone"]))
+                            local_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(os.getenv("timezone")))
                             date = discord.utils.format_dt(local_time, style='R')
                             
                             commit_url = commit['html_url']
