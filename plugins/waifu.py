@@ -1317,7 +1317,7 @@ class Waifu(commands.Cog):
             percentage = (sale_value / original_value) * 100
             
             if self.bot.db.delete_card(card_code, ctx.author.id):
-                await self.bot.db.update_user_balance(ctx.author.id, sale_value)
+                self.bot.db.update_user_balance(ctx.author.id, sale_value)
                 
                 embed = discord.Embed(
                     title="Sale Complete",

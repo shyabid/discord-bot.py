@@ -226,7 +226,7 @@ class Mod(commands.Cog):
     async def ban_command(
         self, 
         ctx: commands.Context, 
-        member: str, 
+        user: Union[discord.User, int],
         *, 
         reason: Optional[str] = None
     ) -> None:
@@ -244,12 +244,29 @@ class Mod(commands.Cog):
         ?ban username Breaking rules
         ?banmember userID Spamming
         """
-        found_member: Optional[discord.Member] = (
-            await utils.find_member(ctx.guild, member)
-        )
-        if not found_member:
-            raise commands.BadArgument("Member not found")
-        await self._do_ban(ctx, found_member, reason if reason else "No reason provided", 1)
+
+        if isinstance(user, int):
+            try:
+                user = await self.bot.fetch_user(user)
+            except discord.NotFound:
+                raise commands.BadArgument("User with that ID not found.")
+
+        try:
+            await ctx.guild.ban(user, reason=reason or "No reason provided", delete_message_days=1)
+            embed = discord.Embed(
+                title="Ban Case",
+                description=f"<@{user.id}> banned by <@{ctx.author.id}>",
+                color=discord.Color.red()
+            )
+            embed.set_thumbnail(url=user.avatar.url)
+            embed.add_field(name="Reason", value=reason or "No reason provided", inline=False)
+            await ctx.send(embed=embed)
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to ban this user.")
+        except discord.HTTPException:
+            await ctx.send("Ban failed due to an unexpected error.")
+
 
     async def _do_kick(
         self,
@@ -346,7 +363,7 @@ class Mod(commands.Cog):
     async def kick_command(
         self,
         ctx: commands.Context,
-        member: str,
+        member: Union[discord.Member, str],
         *,
         reason: str = "No reason provided"
     ) -> None:
@@ -364,10 +381,14 @@ class Mod(commands.Cog):
         ?kick username Breaking rules
         ?kickmember userID Spamming
         """
-        found_member = await utils.find_member(ctx.guild, member)
-        if not found_member:
-            raise commands.BadArgument("Member not found")
-        await self._do_kick(ctx, found_member, reason)
+
+        if not isinstance(member, discord.Member):
+            member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
+            if not member:
+                raise commands.BadArgument("Member not found")
+            
+
+        await self._do_kick(ctx, member, reason)
 
     async def _do_timeout(
         self,
@@ -421,6 +442,7 @@ class Mod(commands.Cog):
 
         await log_channel.send(embed=timeout_log_embed)
         await ctx.reply(f"{member} has been timed out for {formatted_duration}.")
+        print("the timeout log shit works, where it says 'has been time out for'") # remove
 
         # Add case to database with duration
         self.bot.db.add_mod_case(
@@ -472,7 +494,7 @@ class Mod(commands.Cog):
     async def timeout_command(
         self,
         ctx: commands.Context,
-        member: str,
+        member: Union[discord.Member, str],
         duration: str,
         *,
         reason: Optional[str] = None
@@ -492,10 +514,14 @@ class Mod(commands.Cog):
         ?timeout username 2h Spamming
         ?mute userID 30m Breaking rules
         """
-        found_member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
-        if not found_member:
-            raise commands.BadArgument("Member not found")
-        await self._do_timeout(ctx, found_member, duration, reason if reason else "No reason provided")
+        
+        if not isinstance(member, discord.Member):
+            member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
+            if not member:
+                raise commands.BadArgument("Member not found")
+        try:
+            await self._do_timeout(ctx, member, duration, reason if reason else "No reason provided")
+        except Exception as e: print(str(e))
     
     @moderation.command(
         name="removetimeout",
