@@ -3,11 +3,14 @@ from discord.ext import commands
 from bot import Morgana
 
 class Bookmark(commands.Cog):
+    """Message bookmark system for personal reference"""
+    
     def __init__(self, bot: Morgana):
         self.bot = bot
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        """Monitor for bookmark reactions and process messages"""
         if str(payload.emoji) != "🔖":
             return
 
@@ -30,6 +33,7 @@ class Bookmark(commands.Cog):
         await self._send_bookmark(user, message, embed)
 
     def _create_bookmark_embed(self, message: discord.Message) -> discord.Embed:
+        """Format bookmarked message into an organized embed"""
         embed = discord.Embed(
             title="Message Bookmarked",
             description=f"> {message.content[:1021]}..." if len(message.content) > 1024 else f"> {message.content}",
@@ -61,6 +65,7 @@ class Bookmark(commands.Cog):
         return embed
 
     async def _send_bookmark(self, user: discord.User, message: discord.Message, embed: discord.Embed):
+        """Deliver the bookmark to the user's DM"""
         try:
             await user.send(embed=embed)
         except (discord.Forbidden, discord.HTTPException):

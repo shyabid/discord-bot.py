@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 from typing import List, Optional
 import math
+from bot import Morgana
 
 class PaginatedHelpView(discord.ui.View):
     def __init__(self, embeds: List[discord.Embed]):
@@ -44,9 +45,9 @@ class PaginatedHelpView(discord.ui.View):
         await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
 class Help(commands.Cog):
-    """Custom help command for the bot."""
+    """Interactive command documentation system"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: Morgana):
         self.bot = bot
         self._original_help_command = bot.help_command
         bot.help_command = None
@@ -60,7 +61,7 @@ class Help(commands.Cog):
             if current.lower() in command.qualified_name.lower():
                 choices.append(app_commands.Choice(name=command.qualified_name, value=command.qualified_name))
         return choices[:25]
-
+    
     def create_command_pages(self, ctx, commands_list, title, items_per_page=10):
         filtered_commands = [cmd for cmd in commands_list if not isinstance(cmd, app_commands.ContextMenu)]
         
@@ -167,6 +168,14 @@ class Help(commands.Cog):
         description="Get help on commands or list all plugins",
     )
     async def help_command(self, ctx: commands.Context, *, command: Optional[str] = None) -> None:
+        """Comprehensive documentation and command discovery system
+        
+        This command provides an interactive help interface for exploring all available
+        commands and features. When used without parameters, it displays a list of all
+        plugin categories with a dropdown menu for easy navigation. When specifying a
+        command name, it shows detailed usage instructions, available parameters, and
+        examples for that specific command.
+        """
         try:
             if command:
                 if ' ' in command:
@@ -181,9 +190,35 @@ class Help(commands.Cog):
                 else:
                     cmd = self.bot.get_command(command)
                     if cmd:
-                        embed = self.get_command_help(cmd)
-                        await ctx.reply(embed=embed)
-                        return
+                        if isinstance(cmd, commands.Group):
+                            embed = discord.Embed(
+                                title=f"Command Group: {cmd.qualified_name}",
+                                description=cmd.help or cmd.description or "No description available.",
+                                color=discord.Color.dark_grey()
+                            )
+                            
+                            prefix = "?" if isinstance(cmd, commands.Command) else "/"
+                            usage = f"{prefix}{cmd.qualified_name} <subcommand>"
+                            embed.add_field(name="Usage", value=f"```\n{usage}\n```", inline=False)
+                            
+                            subcommands = ""
+                            for subcmd in cmd.commands:
+                                subcommands += f"• **{subcmd.name}** - {subcmd.description or 'No description'}\n"
+                            
+                            if subcommands:
+                                embed.add_field(name="Subcommands", value=subcommands, inline=False)
+                                embed.add_field(
+                                    name="Detailed Help",
+                                    value=f"Use `?help {cmd.qualified_name} <subcommand>` for more details on a subcommand.",
+                                    inline=False
+                                )
+                            
+                            await ctx.reply(embed=embed)
+                            return
+                        else:
+                            embed = self.get_command_help(cmd)
+                            await ctx.reply(embed=embed)
+                            return
                 
                 await ctx.reply(f"No command called '{command}' found.")
                 return

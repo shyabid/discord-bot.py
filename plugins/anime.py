@@ -21,12 +21,9 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Group command for anime-related features.
-
-        **Parameters:**
-        None
-        """
+        """Access comprehensive anime content and information features through this command group. 
+        Includes functionality for image retrieval and series searching through the Kitsu API. 
+        Use a subcommand to access specific features."""
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a corret subcommand.\n> Avaliable subcommands: `waifu`, `neko`, `hubby`, `search`")
 
@@ -38,12 +35,8 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Get a random waifu image from the internet.
-
-        **Parameters:**
-        None
-        """
+        """Retrieves a curated high-quality anime waifu image from nekos.best API, 
+        complete with artist attribution and profile links."""
         try:
             url: str = "https://nekos.best/api/v2/waifu"
             response: requests.Response = requests.get(url)
@@ -61,24 +54,6 @@ class Anime(commands.Cog):
         except Exception as e:
             await ctx.reply(f"An error occurred: {e}")
 
-    # @commands.command(
-    #     name="waifu",
-    #     description="Get a random waifu image",
-    #     aliases=["w", "wa"]
-    # ) 
-    # async def waifu_command(
-    #     self,
-    #     ctx: commands.Context
-    # ) -> None:
-    #     """
-    #     Get a random waifu image from the internet.
-
-    #     **Parameters:**
-    #     None
-
-    #     """
-    #     await self.waifu(ctx)
-
     @anime.command(
         name="neko",
         description="Get a random neko image"
@@ -87,12 +62,8 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Get a random neko image from the internet.
-
-        **Parameters:**
-        None
-        """
+        """Retrieves a curated high-quality anime neko character image from nekos.best API, 
+        complete with artist attribution and profile links."""
         try:
             url: str = "https://nekos.best/api/v2/neko"
             response: requests.Response = requests.get(url)
@@ -119,13 +90,8 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Get a random neko image from the internet.
-
-        **Parameters:**
-        None
-
-        """
+        """Retrieves a curated high-quality anime neko character image from nekos.best API, 
+        complete with artist attribution and profile links."""
         await self.neko(ctx)
 
     @anime.command(
@@ -136,20 +102,8 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Get a random husbando image from the internet.
-
-        **Usage:**
-        ?anime hubby
-        /anime hubby
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?anime hubby
-        /anime hubby
-        """
+        """Retrieves a curated high-quality anime male character image from nekos.best API, 
+        complete with artist attribution and profile links."""
         try:
             url: str = "https://nekos.best/api/v2/husbando"
             response: requests.Response = requests.get(url)
@@ -176,26 +130,8 @@ class Anime(commands.Cog):
         self,
         ctx: commands.Context
     ) -> None:
-        """
-        Get a random husbando image from the internet.
-
-        **Usage:**
-        ?hubby
-        ?husbando
-        ?huby
-        ?husband
-        ?h
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?hubby
-        ?husbando
-        ?huby
-        ?husband
-        ?h
-        """
+        """Retrieves a curated high-quality anime male character image from nekos.best API, 
+        complete with artist attribution and profile links."""
         await self.husbando(ctx)
 
     @anime.command(
@@ -208,20 +144,9 @@ class Anime(commands.Cog):
         ctx: commands.Context,
         name: str
     ) -> None:
-        """
-        Search for an anime using the Kitsu API.
-
-        **Usage:**
-        ?anime search <name>
-        /anime search <name>
-
-        **Parameters:**
-        name (str): The name of the anime to search for.
-
-        **Example:**
-        ?anime search Naruto
-        /anime search One Piece
-        """
+        """Performs a comprehensive search for anime series using the Kitsu API. 
+        Displays detailed information including titles, synopsis, ratings, episode details, 
+        and media content in a paginated format. Supports partial or complete title search queries."""
         try:
             url: str = f"https://kitsu.io/api/edge/anime?filter[text]={name}"
             response: requests.Response = requests.get(url)
@@ -277,19 +202,9 @@ class Anime(commands.Cog):
         ctx: commands.Context,
         name: str
     ) -> None:
-        """
-        Search for an anime using the Kitsu API.
-
-        **Usage:**
-        ?search <name>
-
-        **Parameters:**
-        name (str): The name of the anime to search for.
-
-        **Example:**
-        ?search Naruto
-        ?search "My Hero Academia"
-        """
+        """Performs a comprehensive search for anime series using the Kitsu API. 
+        Displays detailed information including titles, synopsis, ratings, episode details, 
+        and media content in a paginated format. Supports partial or complete title search queries."""
         await self.search(ctx, name)
 
 

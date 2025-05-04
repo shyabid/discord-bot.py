@@ -11,6 +11,14 @@ class Alias(commands.Cog):
 
     @commands.hybrid_group(name="alias", description="Manage command aliases")
     async def alias(self, ctx: commands.Context) -> None:
+        """
+        Manage server-specific command aliases and shortcuts
+
+        This command group allows server administrators to create custom shortcuts
+        for frequently used commands. Aliases can simplify complex commands and
+        make them easier to remember and use.
+        """
+        
         if ctx.invoked_subcommand is None:
             await ctx.send("Please specify a correct subcommand.\n> Avaliable subcommands: `add`, `remove`, `reset`, `list`")
 
@@ -21,6 +29,8 @@ class Alias(commands.Cog):
         command="The full command that will be executed"
     )
     async def add_alias(self, ctx: commands.Context, alias: str, *, command: str) -> None:
+        """Create a new command alias for the server. You can create an alias of a subcommand too."""
+        
         if " " in alias:
             return await ctx.reply("Aliases must be a single word!")
 
@@ -41,6 +51,8 @@ class Alias(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     @app_commands.describe(alias="The alias name to remove")
     async def remove_alias(self, ctx: commands.Context, alias: str) -> None:
+        """Remove an existing command alias from the server."""
+        
         if self.bot.db.remove_alias(ctx.guild.id, alias):
             await ctx.reply(f"Successfully removed the alias `{alias}`")
         else:
@@ -49,10 +61,16 @@ class Alias(commands.Cog):
     @alias.command(name="reset", description="Remove all aliases from the server")
     @commands.has_permissions(administrator=True)
     async def reset_aliases(self, ctx: commands.Context) -> None:
+        """Remove all command aliases from the server."""
+        
         self.bot.db.reset_aliases(ctx.guild.id)
         await ctx.reply("Successfully reset all aliases for this server.")
+        
+        
     @alias.command(name="list", description="List all aliases in the server")
     async def list_aliases(self, ctx: commands.Context) -> None:
+        """List all command aliases in the server."""
+        
         aliases = self.bot.db.get_all_aliases(ctx.guild.id)
         
         if not aliases:

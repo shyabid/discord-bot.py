@@ -875,6 +875,7 @@ class Vccontrol(commands.Cog, name="tempvc"):
         description="Temporary voice channel commands"
     )
     async def tempvc(self, ctx: commands.Context) -> None:
+        """Dynamic voice channel creation and management"""
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a correct subcommand.\n> Avaliable subcommands: `set`, `toggle`")
 
@@ -891,7 +892,7 @@ class Vccontrol(commands.Cog, name="tempvc"):
         ctx: commands.Context,
         channel: discord.VoiceChannel
     ) -> None:
-        
+        """Configure the auto-creation template channel"""
         required_perms = discord.Permissions(
             manage_channels=True,
             move_members=True,
@@ -927,7 +928,7 @@ class Vccontrol(commands.Cog, name="tempvc"):
         before: discord.VoiceState,
         after: discord.VoiceState
     ) -> None:
-
+        """Monitor voice activity to manage temporary channels"""
         template_channel_id = self.bot.db.get_template_channel(member.guild.id)
         if not template_channel_id:
             return
@@ -1072,6 +1073,7 @@ class Vccontrol(commands.Cog, name="tempvc"):
         ctx: commands.Context,  
         state: str
     ) -> None:
+        """Enable or disable the voice channel system"""
         if state.lower() == "on":
             if self.bot.db.get_template_channel(ctx.guild.id):
                 self.bot.db.toggle_tempvc(ctx.guild.id, True)

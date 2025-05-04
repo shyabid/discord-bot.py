@@ -53,6 +53,7 @@ class Morgana(commands.AutoShardedBot):
             
         #     self.tree.copy_global_to(guild=guild)
         await self.tree.sync()
+        print(f"Logged in as {self.user.name} ({self.user.id})")
         ...
     async def on_command_completion(
         self, 
@@ -66,7 +67,8 @@ class Morgana(commands.AutoShardedBot):
         context: commands.Context, 
         error: commands.CommandError
     ) -> None:
-        if hasattr(context.command, 'on_error'): return
+
+        if hasattr(context.command, 'on_error'): return        
         if isinstance(error, commands.CommandNotFound):
             return
 
@@ -95,32 +97,39 @@ class Morgana(commands.AutoShardedBot):
             await context.reply(f"Could not parse argument '{error.param.name}'. Accepted types: {', '.join([t.__name__ for t in error.converters])}")
         elif isinstance(error, commands.BadLiteralArgument):
             await context.reply(f"Invalid option for '{error.param.name}'. Allowed values are: {', '.join(map(str, error.literals))}")
-    
         
+        elif isinstance(error, commands.CommandInvokeError):
+            if isinstance(error.original, discord.Forbidden):
+                await context.reply("I do not have enough permission to perform this action.")
+                return
+            
         else:
-            try:
-                owner = await self.fetch_user(os.getenv("owner"))
-                embed = discord.Embed(
-                    title="Bot Error",
-                    color=discord.Color.red(),
-                    timestamp=discord.utils.utcnow()
-                )
+            print(f"Error: {str(error)}")
+            print("Full traceback:")
+            traceback.print_exception(type(error), error, error.__traceback__)
+            # try:
+            #     owner = await self.fetch_user(os.getenv("owner"))
+            #     embed = discord.Embed(
+            #         title="Bot Error",
+            #         color=discord.Color.red(),
+            #         timestamp=discord.utils.utcnow()
+            #     )
                 
-                embed.add_field(name="Error Details", value=str(error)[:1024], inline=False)
+            #     embed.add_field(name="Error Details", value=str(error)[:1024], inline=False)
                 
-                tb_string = ''.join(traceback.format_tb(error.__traceback__))
+            #     tb_string = ''.join(traceback.format_tb(error.__traceback__))
                 
-                if context.command:
-                    embed.add_field(name="Command", value=context.command.name, inline=True)
+            #     if context.command:
+            #         embed.add_field(name="Command", value=context.command.name, inline=True)
                 
-                if context:
-                    embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
-                    embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=True)
-                    embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=True)
+            #     if context:
+            #         embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
+            #         embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=True)
+            #         embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=True)
         
-                await owner.send(embed=embed, content=f"```py\n{tb_string}\n```")
-                await context.reply("An error occurred while executing the command. The developers have been notified.")
-            except Exception as e: print(str(e))
+            #     await owner.send(embed=embed, content=f"```py\n{tb_string}\n```")
+            #     await context.reply("An error occurred while executing the command. The developers have been notified.")
+            # except Exception as e: print(str(e))
             
 
     async def _handle_missing_arg(self, context, error):    

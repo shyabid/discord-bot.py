@@ -177,37 +177,108 @@ class ranking(commands.Cog):
         name="leaderboard",
         description="View the server's top ranked members"
     )
-    async def leaderboard(self, ctx: commands.Context) -> None:
+    @app_commands.describe(
+        sort_by="Sort by XP or Level",
+        page="Page number to view",
+        per_page="Number of entries per page",
+        role="Filter by specific role",
+        reverse="Show from bottom instead of top"
+    )
+    async def leaderboard(
+        self, 
+        ctx: commands.Context,
+        sort_by: Optional[str] = "xp",
+        page: int = 1,
+        per_page: int = 10,
+        role: Optional[discord.Role] = None,
+        reverse: bool = False
+    ) -> None:
         """
         Display the server's ranking leaderboard showing top members.
-
-        **Usage:**
-        ?ranking leaderboard
-        /ranking leaderboard
-
-        **Example:**
-        ?ranking leaderboard
+        Parameters:
+        - sort_by: Sort by 'xp' or 'level'
+        - page: Page number to view
+        - per_page: Entries per page (max 20)
+        - role: Filter by role
+        - reverse: Show from bottom instead of top
         """
+        if per_page > 20:
+            per_page = 20
+        
+        if page < 1:
+            page = 1
+            
+        if sort_by not in ['xp', 'level']:
+            sort_by = 'xp'
+
+        # Get raw leaderboard data
         leaderboard_data = self.bot.db.get_guild_leaderboard(ctx.guild.id)
         
+        # Filter and sort data
+        filtered_data = []
+        for user_id, xp, level in leaderboard_data:
+            member = ctx.guild.get_member(user_id)
+            if member:
+                if role and role not in member.roles:
+                    continue
+                filtered_data.append((member, xp, level))
+
+        # Sort data
+        filtered_data.sort(
+            key=lambda x: x[2] if sort_by == 'level' else x[1], 
+            reverse=not reverse
+        )
+
+        # Calculate pages
+        total_pages = max(1, math.ceil(len(filtered_data) / per_page))
+        if page > total_pages:
+            page = total_pages
+
+        # Slice data for current page
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        page_data = filtered_data[start_idx:end_idx]
+
         embed = discord.Embed(
             title="Rank Leaderboard",
             color=discord.Color.dark_gray()
         )
 
+        # Add filters to title
+        filters = []
+        if role:
+            filters.append(f"Role: {role.name}")
+        if reverse:
+            filters.append("Reversed")
+        if filters:
+            embed.title += f" ({', '.join(filters)})"
+
+        # Add statistics
+        embed.add_field(
+            name="Stats",
+            value=f"Total Members: {len(filtered_data)}\n"
+                  f"Showing: {sort_by.upper()}\n"
+                  f"Page: {page}/{total_pages}",
+            inline=False
+        )
+
+        # Format leaderboard entries
         description = []
-        for i, (user_id, xp, level) in enumerate(leaderboard_data, 1):
-            user = ctx.guild.get_member(user_id)
-            if user:
-                description.append(
-                    f"#{i} {user.mention} Level {level} `{xp:,} XP`"
-                )
+        for i, (member, xp, level) in enumerate(page_data, start=start_idx + 1):
+            medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, "")
+            description.append(
+                f"{medal}`#{i:>2}` {member.mention}\n"
+                f"⠀⠀Level: {level} | XP: `{xp:,}`"
+            )
 
         if description:
             embed.description = "\n".join(description)
         else:
-            embed.description = "No data available yet!"
-        
+            embed.description = "No data available!"
+
+        # Add navigation hint
+        embed.set_footer(text=f"Use /leaderboard page:{page+1} to see next page")
+
         await ctx.reply(embed=embed)
 
     @ranking.command(
@@ -219,16 +290,6 @@ class ranking(commands.Cog):
     async def reset(self, ctx: commands.Context, user: discord.Member) -> None:
         """
         Reset a user's level and XP back to zero.
-
-        **Usage:**
-        ?ranking reset <user>
-        /ranking reset <user>
-
-        **Parameters:**
-        user: The user whose progress to reset
-
-        **Example:**
-        ?ranking reset @username
         """
         self.bot.db.reset_user_level(ctx.guild.id, user.id)
         await ctx.reply(f"Reset {user.mention}'s level and XP.")
@@ -245,17 +306,6 @@ class ranking(commands.Cog):
     async def setlevel(self, ctx: commands.Context, user: discord.Member, level: int) -> None:
         """
         Set a user's level to a specific value.
-
-        **Usage:**
-        ?ranking setlevel <user> <level>
-        /ranking setlevel <user> <level>
-
-        **Parameters:**
-        user: The user whose level to set
-        level: The new level value (must be 0 or higher)
-
-        **Example:**
-        ?ranking setlevel @username 5
         """
         if level < 0:
             await ctx.reply("Level cannot be negative!")
@@ -278,17 +328,6 @@ class ranking(commands.Cog):
     async def setxp(self, ctx: commands.Context, user: discord.Member, xp: int) -> None:
         """
         Set a user's XP to a specific amount.
-
-        **Usage:**
-        ?ranking setxp <user> <xp>
-        /ranking setxp <user> <xp>
-
-        **Parameters:**
-        user: The user whose XP to set
-        xp: The new XP amount (must be 0 or higher)
-
-        **Example:**
-        ?ranking setxp @username 1000
         """
         if xp < 0:
             await ctx.reply("XP cannot be negative!")
@@ -310,18 +349,6 @@ class ranking(commands.Cog):
     async def setreward(self, ctx: commands.Context, level: int, role: Optional[discord.Role] = None) -> None:
         """
         Set or remove a role reward for reaching a specific level.
-
-        **Usage:**
-        ?ranking setreward <level> [role]
-        /ranking setreward <level> [role]
-
-        **Parameters:**
-        level: The level at which to award the role
-        role (optional): The role to give as reward. Remove reward if not specified.
-
-        **Example:**
-        ?ranking setreward 10 @Pro
-        /ranking setreward 5 @Veteran
         """
         if level < 0:
             await ctx.reply("Level cannot be negative!")
@@ -340,13 +367,6 @@ class ranking(commands.Cog):
     async def rewards(self, ctx: commands.Context) -> None:
         """
         Display all configured level-based role rewards.
-
-        **Usage:**
-        ?ranking rewards
-        /ranking rewards
-
-        **Example:**
-        ?ranking rewards
         """
         rewards = self.bot.db.get_level_rewards(ctx.guild.id)
         
@@ -400,17 +420,6 @@ class ranking(commands.Cog):
     ) -> None:
         """
         Set the channel where level up messages will be sent.
-
-        **Usage:**
-        ?ranking setchannel [channel]
-        /ranking setchannel [channel]
-
-        **Parameters:**
-        channel (optional): The channel for level up messages. Leave empty to reset to default behavior.
-
-        **Examples:**
-        ?ranking setchannel #level-ups
-        ?ranking setchannel
         """
         self.bot.db.set_levelup_channel(ctx.guild.id, channel.id if channel else None)
         

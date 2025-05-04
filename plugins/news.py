@@ -77,19 +77,7 @@ class News(commands.Cog):
     async def news_hybrid(self, ctx: commands.Context, category: str = "Latest"):
         """
         Get the latest news from a specific category.
-
-        **Usage:**
-        ?news [category]
-        /news [category]
-
-        **Parameters:**
-        category (optional): The news category to fetch. If not provided, 'Latest' will be used.
-
-        **Example:**
-        ?news Technology
-        ?news
-        /news Sports
-        /news
+        Fetches the latest news articles from the BBC API and displays them in an embed format.
         """
         await ctx.defer()
         news_data = await self.fetch_news_data()

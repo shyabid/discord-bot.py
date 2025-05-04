@@ -1,6 +1,6 @@
 from discord.ext import commands
 import discord
-from Quote2Image import Convert, GenerateColors, ImgObject
+# from Quote2Image import Convert, GenerateColors, ImgObject
 import io
 from bot import Morgana
 import aiohttp
@@ -25,17 +25,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Contains commands you can play with. You can either use slash command or normal prefix command. Mostly API calls.
-
-        **Usage:**
-        ?fun
-        /fun
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fun
-        /fun
         """
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a correct subcommand.\n> Available subcommands: `fact`, `joke`, `pickupline`, `8ball`, `roast`, `biden`, `oogway`, `pikachu`, `reverse`, `lulify`, `kanye`, `meme`")
@@ -50,17 +39,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random fact from the internet.
-
-        **Usage:**
-        ?fun fact
-        /fun fact
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fun fact
-        /fun fact
         """
         url: str = "https://uselessfacts.jsph.pl/api/v2/facts/random"
         async with aiohttp.ClientSession() as session:
@@ -82,15 +60,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random fact from the internet.
-
-        **Usage:**
-        ?fact
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fact
         """
         await self.fact(ctx)
 
@@ -104,17 +73,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random joke from the internet.
-
-        **Usage:**
-        ?fun joke
-        /fun joke
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fun joke
-        /fun joke
         """
         url: str = "https://api.popcat.xyz/joke"
         async with aiohttp.ClientSession() as session:
@@ -135,15 +93,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random joke from the internet.
-
-        **Usage:**
-        ?joke
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?joke
         """
         await self.joke(ctx)
 
@@ -157,17 +106,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random pickup line from the internet.
-
-        **Usage:**
-        ?fun pickupline
-        /fun pickupline
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fun pickupline
-        /fun pickupline
         """
         url: str = "https://api.popcat.xyz/pickuplines"
         async with aiohttp.ClientSession() as session:
@@ -188,15 +126,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random pickup line from the internet.
-
-        **Usage:**
-        ?pickupline
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?pickupline
         """
         await self.pickupline(ctx)
 
@@ -212,17 +141,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Ask the magic 8-ball a question and get an answer.
-
-        **Usage:**
-        ?fun 8ball <question>
-        /fun 8ball <question>
-
-        **Parameters:**
-        question (str): The question you want to ask the magic 8-ball
-
-        **Example:**
-        ?fun 8ball Will I win the lottery?
-        /fun 8ball Will I win the lottery?
         """
         url: str = "https://api.popcat.xyz/8ball"
         async with aiohttp.ClientSession() as session:
@@ -245,15 +163,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Ask the magic 8-ball a question and get an answer.
-
-        **Usage:**
-        ?8ball <question>
-
-        **Parameters:**
-        question (str): The question you want to ask the magic 8-ball
-
-        **Example:**
-        ?8ball Will I win the lottery?
         """
         await self.eightball(ctx, question=question)
 
@@ -268,19 +177,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random roast from the internet. Optionally mention a user to roast.
-
-        **Usage:**
-        ?fun roast [target]
-        /fun roast [target]
-
-        **Parameters:**
-        target (discord.Member, optional): The user to roast. If not provided, the roast will be general.
-
-        **Example:**
-        ?fun roast @username
-        ?fun roast
-        /fun roast @username
-        /fun roast
         """
         url: str = "https://evilinsult.com/generate_insult.php?lang=en&type=json"
         async with aiohttp.ClientSession() as session:
@@ -306,16 +202,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random roast from the internet. Optionally mention a user to roast.
-
-        **Usage:**
-        ?roast [target]
-
-        **Parameters:**
-        target (discord.Member, optional): The user to roast. If not provided, the roast will be general.
-
-        **Example:**
-        ?roast @username
-        ?roast
         """
         await self.roast(ctx, target=target)
     @fun.command(
@@ -326,15 +212,6 @@ class Fun(commands.Cog):
     async def biden(self, ctx: commands.Context, *, text: str):
         """
         Generate a Biden meme image with custom text.
-
-        **Usage:**
-        /fun biden <text>
-
-        **Parameters:**
-        text (str): The text to display on the Biden meme image.
-
-        **Example:**
-        /fun biden Hello world!
         """
         formatted_text = text.replace(" ", "+")
         url = f"https://api.popcat.xyz/biden?text={formatted_text}"
@@ -353,15 +230,6 @@ class Fun(commands.Cog):
     async def biden_command(self, ctx: commands.Context, *, text: str):
         """
         Generate a Biden meme image with custom text.
-
-        **Usage:**
-        ?fun biden <text>
-
-        **Parameters:**
-        text (str): The text to display on the Biden meme image.
-
-        **Example:**
-        ?fun biden Hello world!
         """
         await self.biden(ctx, text=text)
 
@@ -373,15 +241,6 @@ class Fun(commands.Cog):
     async def oogway(self, ctx: commands.Context, *, text: str):
         """
         Generate an Oogway meme image with custom text.
-
-        **Usage:**
-        /fun oogway <text>
-
-        **Parameters:**
-        text (str): The text to display on the Oogway meme image.
-
-        **Example:**
-        /fun oogway There are no accidents
         """
         formatted_text = text.replace(" ", "+")
         url = f"https://api.popcat.xyz/oogway?text={formatted_text}"
@@ -400,15 +259,6 @@ class Fun(commands.Cog):
     async def oogway_command(self, ctx: commands.Context, *, text: str):
         """
         Generate an Oogway meme image with custom text.
-
-        **Usage:**
-        ?fun oogway <text>
-
-        **Parameters:**
-        text (str): The text to display on the Oogway meme image.
-
-        **Example:**
-        ?fun oogway There are no accidents
         """
         await self.oogway(ctx, text=text)
 
@@ -420,15 +270,6 @@ class Fun(commands.Cog):
     async def pikachu(self, ctx: commands.Context, *, text: str):
         """
         Generate a Pikachu meme image with custom text.
-
-        **Usage:**
-        /fun pikachu <text>
-
-        **Parameters:**
-        text (str): The text to display on the Pikachu meme image.
-
-        **Example:**
-        /fun pikachu Pika pika!
         """
         formatted_text = text.replace(" ", "+")
         url = f"https://api.popcat.xyz/pikachu?text={formatted_text}"
@@ -447,15 +288,6 @@ class Fun(commands.Cog):
     async def pikachu_command(self, ctx: commands.Context, *, text: str):
         """
         Generate a Pikachu meme image with custom text.
-
-        **Usage:**
-        ?fun pikachu <text>
-
-        **Parameters:**
-        text (str): The text to display on the Pikachu meme image.
-
-        **Example:**
-        ?fun pikachu Pika pika!
         """
         await self.pikachu(ctx, text=text)
 
@@ -467,15 +299,6 @@ class Fun(commands.Cog):
     async def reverse_slash(self, ctx: commands.Context, *, text: str):
         """
         Reverse the given text.
-
-        **Usage:**
-        /fun reverse <text>
-
-        **Parameters:**
-        text (str): The text to reverse.
-
-        **Example:**
-        /fun reverse Hello World
         """
         formatted_text = text.replace(" ", "+")
         url = f"https://api.popcat.xyz/reverse?text={formatted_text}"
@@ -496,15 +319,6 @@ class Fun(commands.Cog):
     async def reverse_command(self, ctx: commands.Context, *, text: str):
         """
         Reverse the given text.
-
-        **Usage:**
-        ?reverse <text>
-
-        **Parameters:**
-        text (str): The text to reverse.
-
-        **Example:**
-        ?reverse Hello World
         """
         await self.reverse_slash(ctx, text=text)
 
@@ -516,15 +330,6 @@ class Fun(commands.Cog):
     async def lulify(self, ctx: commands.Context, *, text: str):
         """
         Translate your text into funny Lul Cat Language! 
-
-        **Usage:**
-        /fun lulify <text>
-
-        **Parameters:**
-        text (str): The text to convert to luliflied speak.
-
-        **Example:**
-        /fun lulify Hello World
         """
         formatted_text = text.replace(" ", "+")
         url = f"https://api.popcat.xyz/lulcat?text={formatted_text}"
@@ -545,82 +350,73 @@ class Fun(commands.Cog):
     async def lulify_command(self, ctx: commands.Context, *, text: str):
         """
         Translate your text into funny Lul Cat Language! 
-
-        **Usage:**
-        ?lulify <text>
-
-        **Parameters:**
-        text (str): The text to convert to lulified speak.
-
-        **Example:**
-        ?lulify Hello World
         """
         await self.lulify(ctx, text=text)
-    @fun.command(name="kanye", description="Get a random Kanye West quote")
-    async def kanye(self, ctx: commands.Context):
-        """
-        Get a random Kanye West quote as an image.
+    # @fun.command(name="kanye", description="Get a random Kanye West quote")
+    # async def kanye(self, ctx: commands.Context):
+    #     """
+    #     Get a random Kanye West quote as an image.
 
-        **Usage:**
-        ?kanye
-        /kanye
+    #     **Usage:**
+    #     ?kanye
+    #     /kanye
 
-        **Example:**
-        ?kanye
-        /kanye
-        """
-        url = "https://api.kanye.rest/"
+    #     **Example:**
+    #     ?kanye
+    #     /kanye
+    #     """
+    #     url = "https://api.kanye.rest/"
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    quote = data.get("quote", "Error: No quote returned")
+    #     async with aiohttp.ClientSession() as session:
+    #         async with session.get(url) as response:
+    #             if response.status == 200:
+    #                 data = await response.json()
+    #                 quote = data.get("quote", "Error: No quote returned")
                     
-                    bg = ImgObject(image="assets/kanye.png", brightness=40, blur=0)
+    #                 bg = ImgObject(image="assets/kanye.png", brightness=40, blur=0)
 
-                    img = Convert(
-                        quote=quote,
-                        author="Kanye West",
-                        fg="#ffffff",
-                        bg=bg,
-                        font_size=25,
-                        font_type="assets/arial.ttf",
-                        width=600,
-                        height=450,
-                        watermark_text=" "
-                    )
+    #                 img = Convert(
+    #                     quote=quote,
+    #                     author="Kanye West",
+    #                     fg="#ffffff",
+    #                     bg=bg,
+    #                     font_size=25,
+    #                     font_type="assets/arial.ttf",
+    #                     width=600,
+    #                     height=450,
+    #                     watermark_text=" "
+    #                 )
 
-                    img_byte_arr = io.BytesIO()
-                    img.save(img_byte_arr, format='PNG')
-                    img_byte_arr.seek(0)
+    #                 img_byte_arr = io.BytesIO()
+    #                 img.save(img_byte_arr, format='PNG')
+    #                 img_byte_arr.seek(0)
 
-                    embed = discord.Embed(color=discord.Color.dark_grey())
-                    embed.set_image(url="attachment://kanye_quote.png")
+    #                 embed = discord.Embed(color=discord.Color.dark_grey())
+    #                 embed.set_image(url="attachment://kanye_quote.png")
                     
-                    if isinstance(ctx, discord.Interaction):
-                        await ctx.response.send_message(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
-                    else:
-                        await ctx.reply(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
-                else:   
-                    error_message = "Failed to fetch a Kanye West quote. Please try again."
-                    if isinstance(ctx, discord.Interaction):
-                        await ctx.response.send_message(error_message, ephemeral=True)
-                    else:
-                        await ctx.reply(error_message)
+    #                 if isinstance(ctx, discord.Interaction):
+    #                     await ctx.response.send_message(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
+    #                 else:
+    #                     await ctx.reply(embed=embed, file=discord.File(img_byte_arr, filename="kanye_quote.png"))
+    #             else:   
+    #                 error_message = "Failed to fetch a Kanye West quote. Please try again."
+    #                 if isinstance(ctx, discord.Interaction):
+    #                     await ctx.response.send_message(error_message, ephemeral=True)
+    #                 else:
+    #                     await ctx.reply(error_message)
 
-    @commands.command(name="kanye", description="Get a random Kanye West quote")
-    async def kanye_command(self, ctx: commands.Context):
-        """
-        Get a random Kanye West quote as an image.
+    # @commands.command(name="kanye", description="Get a random Kanye West quote")
+    # async def kanye_command(self, ctx: commands.Context):
+    #     """
+    #     Get a random Kanye West quote as an image.
 
-        **Usage:**
-        ?kanye
+    #     **Usage:**
+    #     ?kanye
 
-        **Example:**
-        ?kanye
-        """
-        await self.kanye(ctx)
+    #     **Example:**
+    #     ?kanye
+    #     """
+    #     await self.kanye(ctx)
 
 
     @fun.command(
@@ -633,17 +429,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random meme from the internet.
-
-        **Usage:**
-        ?fun meme
-        /fun meme
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?fun meme
-        /fun meme
         """
         try:
             async with aiohttp.ClientSession() as session:
@@ -670,15 +455,6 @@ class Fun(commands.Cog):
     ) -> None:
         """
         Get a random meme from the internet.
-
-        **Usage:**
-        ?meme
-
-        **Parameters:**
-        None
-
-        **Example:**
-        ?meme
         """
         await self.meme(ctx)
 

@@ -36,6 +36,8 @@ class Auto(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def autoreact(self, ctx: commands.Context) -> None:
+        """Configure automated emoji reactions for specified trigger words or phrases. 
+        Provides comprehensive management of reaction triggers using pattern matching."""
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a correct subcommand.\n> Avaliable subcommands: `create`, `delete`, `list`")
         
@@ -55,6 +57,8 @@ class Auto(commands.Cog):
         *, 
         trigger_emojis: str
     ) -> None:
+        """Establish a new automated emoji reaction trigger. Supports multiple emojis and pattern matching types.
+        Accepts standard Unicode emojis and custom server emojis. Format: trigger | emoji1 emoji2"""
         if '|' not in trigger_emojis:
             raise commands.BadArgument("Please separate the trigger and emojis with a ` | `.")
 
@@ -63,7 +67,7 @@ class Auto(commands.Cog):
         trigger = trigger_part.strip('"')
         emoji_list = emojis_part.strip('"').split()
         
-        if not all(self.is_emoji(emoji) for emoji in emoji_list):
+        if not all(self.is_emoji(emoji) or emoji.encode('utf-8').decode('utf-8') == emoji for emoji in emoji_list):
             raise commands.BadArgument("Please provide valid emoji(s).")
         
         self.bot.db.add_auto_reaction(ctx.guild.id, trigger, emoji_list, type)
@@ -83,6 +87,8 @@ class Auto(commands.Cog):
         *, 
         trigger: str
     ) -> None:
+        """Remove an existing automated reaction trigger from the server configuration.
+        Requires exact trigger phrase match for deletion."""
         if self.bot.db.remove_auto_reaction(ctx.guild.id, trigger):
             await ctx.reply(f"Auto-reaction deleted for trigger: `{trigger}`")
         else:
@@ -94,6 +100,8 @@ class Auto(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def react_list(self, ctx: commands.Context) -> None:
+        """Display all configured auto-reaction triggers for the server.
+        Presents triggers in an organized embed format for easy viewing."""
         reactions = self.bot.db.get_auto_reactions(ctx.guild.id)
         if reactions:
 
@@ -118,6 +126,8 @@ class Auto(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def autoreply(self, ctx: commands.Context) -> None:
+        """Configure automated message responses for specified trigger words or phrases.
+        Provides comprehensive management of response triggers using pattern matching."""
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a correct subcommand.\n> Avaliable subcommands: `create`, `delete`, `list`")
             
@@ -138,6 +148,8 @@ class Auto(commands.Cog):
         *, 
         trigger_reply: str
     ) -> None:
+        """Establish a new automated message response trigger. Supports multiple response types
+        and pattern matching configurations. Format: trigger | response message"""
         if '|' not in trigger_reply:
             raise commands.BadArgument("Please separate the trigger and reply with a ` | `.")
         
@@ -166,6 +178,8 @@ class Auto(commands.Cog):
         *, 
         trigger: str
     ) -> None:
+        """Remove an existing automated response trigger from the server configuration.
+        Requires exact trigger phrase match for deletion."""
         if self.bot.db.remove_auto_response(ctx.guild.id, trigger):
             await ctx.reply(f"Auto-response deleted for trigger: `{trigger}`")
         else:
@@ -177,6 +191,8 @@ class Auto(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def reply_list(self, ctx: commands.Context) -> None:
+        """Display all configured auto-response triggers for the server.
+        Presents triggers in an organized embed format for easy viewing."""
         responses = self.bot.db.get_auto_responses(ctx.guild.id)
         if responses:
             

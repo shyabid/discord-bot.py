@@ -140,7 +140,16 @@ class DBManager:
                 raise
 
     def execute(self, query: str, params=()) -> sqlite3.Cursor:
+        """Execute a SQL query with parameters.
+        
+        Args:
+            query (str): The SQL query to execute
+            params (tuple|dict): Query parameters (either tuple or dict)
+        """
         try:
+            # If params is not already a tuple/list, convert it
+            if not isinstance(params, (tuple, list)):
+                params = (params,)
             self._cursor.execute(query, params)
             return self._cursor
         except sqlite3.OperationalError as e:
@@ -148,11 +157,21 @@ class DBManager:
                 print(f"Table missing error: {e}. Try restarting the bot to apply migrations.")
             raise
 
-    def execute_and_commit(self, query: str, params=()) -> sqlite3.Cursor: 
+
+    def execute_and_commit(self, query: str, params=()) -> sqlite3.Cursor:
+        """Execute a SQL query with parameters and commit the changes.
+        
+        Args:
+            query (str): The SQL query to execute
+            params (tuple|list|dict): Query parameters
+            
+        Returns:
+            sqlite3.Cursor: Database cursor
+        """
         self.execute(query, params)
         self.commit()
         return self._cursor
-
+    
     def fetchone(self) -> Optional[tuple]: return self._cursor.fetchone()
     def fetchall(self) -> List[tuple]: return self._cursor.fetchall()
     def commit(self) -> None: self.connection.commit()
@@ -248,9 +267,11 @@ class DBManager:
             ): matching_emojis.append(json.loads(emojis))
         return matching_emojis
 
-    # Auto-response Methods
     def add_auto_response(self, guild_id: int, trigger: str, response: str, trigger_type: str) -> None:
-        self.execute_and_commit("INSERT OR REPLACE INTO auto_responses (guild_id, trigger, type, response) VALUES (?, ?, ?, ?)", guild_id, trigger.lower(), trigger_type, response)
+        self.execute_and_commit(
+            "INSERT OR REPLACE INTO auto_responses (guild_id, trigger, type, response) VALUES (?, ?, ?, ?)",
+            (guild_id, trigger.lower(), trigger_type, response)
+        )
 
     def remove_auto_response(self, guild_id: int, trigger: str) -> bool:
         self.execute_and_commit("DELETE FROM auto_responses WHERE guild_id = ? AND trigger = ?", (guild_id, trigger.lower()))
@@ -280,11 +301,11 @@ class DBManager:
         result = self.fetchone(); return result if result else (0, 0, 0)
 
     def update_user_level(self, guild_id: int, user_id: int, xp: int, level: int) -> None:
-        self.execute_and_commit("""
-            INSERT OR REPLACE INTO user_levels (guild_id, user_id, xp, level, last_xp_time)
-            VALUES (?, ?, ?, ?, ?)
-        """, (guild_id, user_id, xp, level, time.time()))
-
+        self.execute_and_commit(
+            """INSERT OR REPLACE INTO user_levels (guild_id, user_id, xp, level, last_xp_time)
+            VALUES (?, ?, ?, ?, ?)""",
+            (guild_id, user_id, xp, level, time.time())
+        )
     def get_guild_leaderboard(self, guild_id: int, limit: int = 10) -> List[tuple]:
         self.execute("""
             SELECT user_id, xp, level FROM user_levels 
