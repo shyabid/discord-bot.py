@@ -68,9 +68,7 @@ class Morgana(commands.AutoShardedBot):
         error: commands.CommandError
     ) -> None:
 
-        
-        if hasattr(context.command, 'on_error'): return
-        
+        if hasattr(context.command, 'on_error'): return        
         if isinstance(error, commands.CommandNotFound):
             return
 
@@ -99,21 +97,10 @@ class Morgana(commands.AutoShardedBot):
             await context.reply(f"Could not parse argument '{error.param.name}'. Accepted types: {', '.join([t.__name__ for t in error.converters])}")
         elif isinstance(error, commands.BadLiteralArgument):
             await context.reply(f"Invalid option for '{error.param.name}'. Allowed values are: {', '.join(map(str, error.literals))}")
-        elif isinstance(error, discord.Forbidden):
-            await context.reply("I do not have permission to perform this action.")
-            
         
         elif isinstance(error, commands.CommandInvokeError):
             if isinstance(error.original, discord.Forbidden):
                 await context.reply("I do not have enough permission to perform this action.")
-                return
-            elif isinstance(error.original, discord.HTTPException):
-                await context.reply("An error occurred while executing the command. Please try again later.")
-                return
-            else:
-                print(f"Error: {str(error)}")
-                print("Full traceback:")
-                traceback.print_exception(type(error), error, error.__traceback__)
                 return
             
         else:
