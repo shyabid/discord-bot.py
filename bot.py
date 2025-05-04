@@ -98,29 +98,32 @@ class Morgana(commands.AutoShardedBot):
     
         
         else:
-            try:
-                owner = await self.fetch_user(os.getenv("owner"))
-                embed = discord.Embed(
-                    title="Bot Error",
-                    color=discord.Color.red(),
-                    timestamp=discord.utils.utcnow()
-                )
+            print(f"Error: {str(error)}")
+            print("Full traceback:")
+            traceback.print_exception(type(error), error, error.__traceback__)
+            # try:
+            #     owner = await self.fetch_user(os.getenv("owner"))
+            #     embed = discord.Embed(
+            #         title="Bot Error",
+            #         color=discord.Color.red(),
+            #         timestamp=discord.utils.utcnow()
+            #     )
                 
-                embed.add_field(name="Error Details", value=str(error)[:1024], inline=False)
+            #     embed.add_field(name="Error Details", value=str(error)[:1024], inline=False)
                 
-                tb_string = ''.join(traceback.format_tb(error.__traceback__))
+            #     tb_string = ''.join(traceback.format_tb(error.__traceback__))
                 
-                if context.command:
-                    embed.add_field(name="Command", value=context.command.name, inline=True)
+            #     if context.command:
+            #         embed.add_field(name="Command", value=context.command.name, inline=True)
                 
-                if context:
-                    embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
-                    embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=True)
-                    embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=True)
+            #     if context:
+            #         embed.add_field(name="User", value=f"{context.author.mention}", inline=True)
+            #         embed.add_field(name="Channel", value=f"{context.channel.mention}", inline=True)
+            #         embed.add_field(name="Guild", value=f"{context.guild.name}\n{context.guild.id}" if context.guild else "DM", inline=True)
         
-                await owner.send(embed=embed, content=f"```py\n{tb_string}\n```")
-                await context.reply("An error occurred while executing the command. The developers have been notified.")
-            except Exception as e: print(str(e))
+            #     await owner.send(embed=embed, content=f"```py\n{tb_string}\n```")
+            #     await context.reply("An error occurred while executing the command. The developers have been notified.")
+            # except Exception as e: print(str(e))
             
 
     async def _handle_missing_arg(self, context, error):    

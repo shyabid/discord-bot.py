@@ -45,6 +45,12 @@ class Afk(commands.Cog):
     )
     @app_commands.describe(reason="The reason for going AFK")
     async def set_afk(self, ctx: commands.Context, *, reason: Optional[str] = None) -> None:
+        """Set your status as AFK (Away From Keyboard)
+
+        This command marks you as AFK in the server, notifying others when they mention you.
+        When you send a message again, your AFK status will be automatically removed.
+        """
+        
         await ctx.defer()
         if not ctx.guild:
             return await ctx.reply("This command can only be used in a server.")
