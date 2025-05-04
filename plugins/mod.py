@@ -20,6 +20,13 @@ class Mod(commands.Cog):
         self, 
         ctx: commands.Context
     ) -> None:
+        """Server administration and moderation command suite
+        
+        This command group provides comprehensive tools for server administrators
+        and moderators to manage users effectively. Includes capabilities for 
+        timeout management, banning, kicking, and moderation logs to maintain
+        a well-organized and safe server environment.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.reply(
                 "Please specify a moderation command."
@@ -35,7 +42,15 @@ class Mod(commands.Cog):
         ctx: commands.Context, 
         channel: discord.TextChannel
     ) -> None:
+        """Configure a dedicated channel for moderation action logs
+        
+        This command designates a specific text channel to receive automatic
+        notifications about all moderation actions performed in the server.
+        Useful for maintaining transparency and accountability among staff members.
+        Only server administrators can configure this setting.
+        """
         # Replace MongoDB with SQLite
+        await ctx.defer()
         self.bot.db.set_modlog(ctx.guild.id, channel.id)
         await ctx.reply(
             f"Moderation log channel set to {channel.mention}"
@@ -95,27 +110,18 @@ class Mod(commands.Cog):
         reason: str,
         deletemsg: Optional[int] = None
     ) -> None:
-        conditions: Dict[bool, str] = {
-            bool(deletemsg is not None and 
-                (deletemsg < 1 or deletemsg > 14)): 
-                "Invalid deletemsg value. Must be 1-14.",
-            member == ctx.author: 
-                "You cannot ban yourself.",
-            member == ctx.guild.owner: 
-                "Cannot ban server owner.",
-            member == self.bot.user: 
-                "I can't ban myself. Please use other bots or do manually.",
-            member.bot and member != self.bot.user:
-                "Bots cannot be banned, you have to kick them.",
-            member.top_role >= ctx.author.top_role: 
-                "Cannot ban member with higher role.",
-            not ctx.guild.me.top_role > member.top_role: 
-                "Cannot ban member with higher role than me."
-        }
-
-        for condition, message in conditions.items():
-            if condition:
-                raise commands.BadArgument(message)
+        if deletemsg is not None and (deletemsg < 1 or deletemsg > 14):
+            raise commands.BadArgument("Invalid deletemsg value. Must be 1-14.")
+        elif member == ctx.author:
+            raise commands.BadArgument("You cannot ban yourself.")   
+        elif member == ctx.guild.owner:
+            raise commands.BadArgument("I cannot ban the server owner.")    
+        elif member == self.bot.user:
+            raise commands.BadArgument("I can't ban myself.")
+        elif member.top_role >= ctx.author.top_role and member != ctx.guild.owner:
+            raise commands.BadArgument("You cannot ban member with higher or same highest role as you.")   
+        elif not ctx.guild.me.top_role > member.top_role:
+            raise commands.BadArgument("Cannot ban member with same or higher role than me.")
 
         log_channel: Optional[discord.TextChannel] = (
             await self.get_log_channel(ctx.guild.id)
@@ -199,21 +205,12 @@ class Mod(commands.Cog):
         reason: str = "No reason provided",
         deletemsg: Optional[int] = None
     ) -> None:
-        """
-        Ban a member from the server.
-
-        **Usage:**
-        ?moderation ban <member> [reason] [delete_days]
-        /moderation ban <member> [reason] [delete_days]
-
-        **Parameters:**
-        member (discord.Member): The member to ban
-        reason (str, optional): The reason for the ban. Defaults to "No reason provided"
-        deletemsg (int, optional): Number of days of messages to delete (1-14)
-
-        **Example:**
-        ?moderation ban @user Spamming 7
-        /moderation ban @user Breaking rules
+        """Permanently remove a member from the server
+        
+        This command bans a member from the server, preventing them from rejoining
+        unless unbanned. Includes options to delete their recent message history
+        and automatically notifies the user about their ban when possible.
+        All ban actions are recorded in the moderation log.
         """
         await self._do_ban(ctx, member, reason, deletemsg)
 
@@ -226,23 +223,12 @@ class Mod(commands.Cog):
     async def ban_command(
         self, 
         ctx: commands.Context, 
-        user: Union[discord.User, int],
+        user: Union[discord.Member, str, int],
         *, 
         reason: Optional[str] = None
     ) -> None:
         """
         Ban a member from the server.
-
-        **Usage:**
-        ?ban <member> [reason]
-
-        **Parameters:**
-        member (str): The member's name, nickname, or ID
-        reason (str, optional): The reason for the ban
-
-        **Example:**
-        ?ban username Breaking rules
-        ?banmember userID Spamming
         """
 
         if isinstance(user, int):
@@ -251,21 +237,13 @@ class Mod(commands.Cog):
             except discord.NotFound:
                 raise commands.BadArgument("User with that ID not found.")
 
-        try:
-            await ctx.guild.ban(user, reason=reason or "No reason provided", delete_message_days=1)
-            embed = discord.Embed(
-                title="Ban Case",
-                description=f"<@{user.id}> banned by <@{ctx.author.id}>",
-                color=discord.Color.red()
-            )
-            embed.set_thumbnail(url=user.avatar.url)
-            embed.add_field(name="Reason", value=reason or "No reason provided", inline=False)
-            await ctx.send(embed=embed)
+        if isinstance(user, str):
+            user = await utils.find_member(ctx.guild, user)
+            if not user:
+                raise commands.BadArgument("User not found")
+      
+        await self._do_ban(ctx, user, reason if reason else "No reason provided")
 
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to ban this user.")
-        except discord.HTTPException:
-            await ctx.send("Ban failed due to an unexpected error.")
 
 
     async def _do_kick(
@@ -274,17 +252,16 @@ class Mod(commands.Cog):
         member: discord.Member,
         reason: str
     ) -> None:
-        conditions: Dict[bool, str] = {
-            member == ctx.author: "You cannot kick yourself.",
-            member == ctx.guild.owner: "Cannot kick server owner.", 
-            member == self.bot.user: "I can't kick myself.",
-            member.top_role >= ctx.author.top_role: "Cannot kick member with higher role.",
-            not ctx.guild.me.top_role > member.top_role: "Cannot kick member with higher role than me."
-        }
-
-        for condition, message in conditions.items():
-            if condition:
-                raise commands.BadArgument(message)
+        if member == ctx.author:
+            raise commands.BadArgument("You cannot kick yourself.")
+        elif member == ctx.guild.owner:
+            raise commands.BadArgument("Cannot kick server owner.")
+        elif member == self.bot.user:
+            raise commands.BadArgument("I can't kick myself.")
+        elif member.top_role >= ctx.author.top_role and member != ctx.guild.owner:
+            raise commands.BadArgument("Cannot kick member with higher role.")
+        elif not ctx.guild.me.top_role > member.top_role:
+            raise commands.BadArgument("Cannot kick member with higher role than me.")
 
         log_channel: Optional[discord.TextChannel] = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
@@ -341,20 +318,12 @@ class Mod(commands.Cog):
         *,
         reason: str = "No reason provided"
     ) -> None:
-        """
-        Kick a member from the server.
-
-        **Usage:**
-        ?moderation kick <member> [reason]
-        /moderation kick <member> [reason]
-
-        **Parameters:**
-        member (discord.Member): The member to kick
-        reason (str, optional): The reason for the kick. Defaults to "No reason provided"
-
-        **Example:**
-        ?moderation kick @user Spamming
-        /moderation kick @user Breaking rules
+        """Remove a member from the server temporarily
+        
+        This command kicks a member from the server, forcing them to leave
+        but allowing them to rejoin with a new invite. The member will be
+        notified about the kick reason when possible. All kick actions
+        are recorded in the moderation log for accountability.
         """
         await self._do_kick(ctx, member, reason)
 
@@ -363,29 +332,25 @@ class Mod(commands.Cog):
     async def kick_command(
         self,
         ctx: commands.Context,
-        member: Union[discord.Member, str],
+        member: Union[discord.Member, str, int],
         *,
         reason: str = "No reason provided"
     ) -> None:
         """
         Kick a member from the server.
 
-        **Usage:**
-        ?kick <member> [reason]
-
-        **Parameters:**
-        member (str): The member's name, nickname, or ID
-        reason (str, optional): The reason for the kick
-
-        **Example:**
-        ?kick username Breaking rules
-        ?kickmember userID Spamming
         """
 
         if not isinstance(member, discord.Member):
-            member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
-            if not member:
-                raise commands.BadArgument("Member not found")
+            if isinstance(member, int):
+                try:
+                    member = await self.bot.fetch_user(member)
+                except discord.NotFound:
+                    raise commands.BadArgument("User with that ID not found.")
+            else: 
+                member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
+                if not member:
+                    raise commands.BadArgument("Member not found")
             
 
         await self._do_kick(ctx, member, reason)
@@ -400,17 +365,20 @@ class Mod(commands.Cog):
         duration_seconds = utils.parse_time_string(duration)
         if duration_seconds == 0:
             raise commands.BadArgument("Invalid duration format")
-
-        conditions: Dict[bool, str] = {
-            member == ctx.author: "You cannot timeout yourself.",
-            member == ctx.guild.owner: "Cannot timeout server owner.",
-            member == self.bot.user: "I can't timeout myself.",
-            member.bot and member != self.bot.user:
-                "I cannot timeout other bots.",
-            member.top_role >= ctx.author.top_role: "Cannot timeout member with higher role.",
-            not ctx.guild.me.top_role > member.top_role: "Cannot timeout member with higher role than me.",
-            duration_seconds < 60: "Duration must be at least 1 minute."
-        }
+        elif member == ctx.author:
+            raise commands.BadArgument("You cannot timeout yourself.")
+        elif member == ctx.guild.owner:
+            raise commands.BadArgument("Cannot timeout server owner.")  
+        elif member == self.bot.user:
+            raise commands.BadArgument("I can't timeout myself.")
+        elif member.bot and member != self.bot.user:
+            raise commands.BadArgument("I cannot timeout other bots.")
+        elif member.top_role >= ctx.author.top_role:
+            raise commands.BadArgument("Cannot timeout member with higher role.")
+        elif not ctx.guild.me.top_role > member.top_role and member != ctx.guild.owner:
+            raise commands.BadArgument("Cannot timeout member with higher role than me.")
+        elif duration_seconds < 60:
+            raise commands.BadArgument("Duration must be at least 1 minute.")
 
         log_channel: Optional[discord.TextChannel] = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
@@ -467,21 +435,12 @@ class Mod(commands.Cog):
         *,
         reason: str = "No reason provided"
     ) -> None:
-        """
-        Timeout (mute) a member for a specified duration.
-
-        **Usage:**
-        ?moderation timeout <member> <duration> [reason]
-        /moderation timeout <member> <duration> [reason]
-
-        **Parameters:**
-        member (discord.Member): The member to timeout
-        duration (str): Duration of timeout (e.g., "1h", "30m", "2h30m")
-        reason (str, optional): The reason for the timeout
-
-        **Example:**
-        ?moderation timeout @user 2h Spamming
-        /moderation timeout @user 30m Breaking rules
+        """Temporarily restrict a member's ability to interact
+        
+        This command applies a timeout to a member, preventing them from sending
+        messages, adding reactions, joining voice channels, or using slash commands
+        for the specified duration. The member will be notified about the timeout
+        when possible, and the action will be logged in the moderation channel.
         """
         await self._do_timeout(ctx, member, duration, reason)
 
@@ -494,34 +453,27 @@ class Mod(commands.Cog):
     async def timeout_command(
         self,
         ctx: commands.Context,
-        member: Union[discord.Member, str],
+        member: Union[discord.Member, str, int],
         duration: str,
         *,
         reason: Optional[str] = None
     ) -> None:
         """
         Timeout (mute) a member for a specified duration.
-
-        **Usage:**
-        ?timeout <member> <duration> [reason]
-
-        **Parameters:**
-        member (str): The member's name, nickname, or ID
-        duration (str): Duration of timeout (e.g., "1h", "30m", "2h30m")
-        reason (str, optional): The reason for the timeout
-
-        **Example:**
-        ?timeout username 2h Spamming
-        ?mute userID 30m Breaking rules
         """
         
         if not isinstance(member, discord.Member):
+            if isinstance(member, int):
+                try:
+                    member = await self.bot.fetch_user(member)
+                except discord.NotFound:
+                    raise commands.BadArgument("User with that ID not found.")
+                
             member: Optional[discord.Member] = await utils.find_member(ctx.guild, member)
             if not member:
                 raise commands.BadArgument("Member not found")
-        try:
-            await self._do_timeout(ctx, member, duration, reason if reason else "No reason provided")
-        except Exception as e: print(str(e))
+        await self._do_timeout(ctx, member, duration, reason if reason else "No reason provided")
+
     
     @moderation.command(
         name="removetimeout",
@@ -535,16 +487,22 @@ class Mod(commands.Cog):
         *,
         reason: str = "No reason provided"
     ) -> None:
-        conditions: Dict[bool, str] = {
-            member == ctx.author: "You cannot remove timeout from yourself.",
-            member == self.bot.user: "I can't remove timeout from myself.",
-            member.top_role >= ctx.author.top_role: "Cannot remove timeout from member with higher role.",
-            not ctx.guild.me.top_role > member.top_role: "Cannot remove timeout from member with higher role than me.",
-        }
-
-        for condition, message in conditions.items():
-            if condition:
-                raise commands.BadArgument(message)
+        """Lift an active timeout restriction from a member
+        
+        This command removes an active timeout from a member, immediately restoring
+        their ability to send messages, add reactions, join voice channels, and use
+        slash commands. The action will be recorded in the moderation log and can
+        only be performed by moderators with appropriate permissions.
+        """
+        
+        if member == ctx.author:
+            raise commands.BadArgument("You cannot remove timeout from yourself.")
+        elif member == self.bot.user:
+            raise commands.BadArgument("I can't remove timeout from myself.")
+        elif member.top_role >= ctx.author.top_role:
+            raise commands.BadArgument("Cannot remove timeout from member with higher role.")
+        elif not ctx.guild.me.top_role > member.top_role:
+            raise commands.BadArgument("Cannot remove timeout from member with higher role than me.")
 
         log_channel: Optional[discord.TextChannel] = await self.get_log_channel(ctx.guild.id)
         if not log_channel:
@@ -645,20 +603,12 @@ class Mod(commands.Cog):
         *,
         reason: Optional[str] = None
     ) -> None:
-        """
-        Unban a user from the server.
-
-        **Usage:**
-        ?moderation unban <user_id> [reason]
-        /moderation unban <user_id> [reason]
-
-        **Parameters:**
-        user_id (str): The ID of the user to unban
-        reason (str, optional): The reason for the unban
-
-        **Example:**
-        ?moderation unban 123456789 Appeal accepted
-        /moderation unban 123456789 Reformed
+        """Remove a ban, allowing a user to rejoin the server
+        
+        This command removes an active ban from a user, allowing them to rejoin
+        the server if they have an invite. Requires the exact user ID of the banned
+        user. The unban action will be recorded in the moderation logs and can only
+        be performed by members with the ban permission.
         """
         await self._do_unban(ctx, user_id, reason)
 
@@ -677,17 +627,6 @@ class Mod(commands.Cog):
     ) -> None:
         """
         Unban a user from the server.
-
-        **Usage:**
-        ?unban <user_id> [reason]
-
-        **Parameters:**
-        user_id (str): The ID of the user to unban
-        reason (str, optional): The reason for the unban
-
-        **Example:**
-        ?unban 123456789 Appeal accepted
-        ?unbanuser 123456789 Reformed
         """
         await self._do_unban(ctx, user_id, reason)
 

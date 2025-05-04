@@ -315,12 +315,26 @@ class Economy(commands.Cog):
 
     @commands.hybrid_group(name="mgem", description="Mgem related commands")
     async def mgem(self, ctx: commands.Context):
+        """Premium currency management system for special purchases
+        
+        This command group provides functionality for managing Mgems, the bot's
+        premium currency. Mgems can be purchased with server currency and
+        transferred between users. They're used for exclusive purchases and
+        premium features in the server economy.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
     @mgem.command(name="buy", description="Buy Mgems with server currency")
     @app_commands.describe(count="Number of Mgems to buy")
     async def mgem_buy(self, ctx: commands.Context, count: int) -> None:
+        """Convert server currency to premium Mgem currency
+        
+        This command allows you to purchase Mgems using your regular server currency.
+        Mgems are a premium currency that can be used for special purchases and
+        features. The exchange rate is fixed, and you'll receive a digital receipt
+        confirming your purchase transaction.
+        """
         if count <= 0:
             await ctx.reply("Please specify a positive number of Mgems to buy!")
             return
@@ -356,6 +370,13 @@ class Economy(commands.Cog):
         count="Number of Mgems to give"
     )
     async def mgem_give(self, ctx: commands.Context, user: discord.Member, count: int) -> None:
+        """Transfer Mgems to another server member
+        
+        This command allows you to give your Mgems to another user in the server.
+        The transfer is immediate, and both parties receive confirmation of the
+        transaction. This feature enables a player-driven economy where premium
+        currency can circulate between members.
+        """
         if count <= 0:
             await ctx.reply("Please specify a positive number of Mgems to give!")
             return
@@ -388,6 +409,13 @@ class Economy(commands.Cog):
 
     @commands.hybrid_command(name="shop", description="View the server shop")
     async def shop(self, ctx: commands.Context):
+        """Browse available items and roles for purchase
+        
+        This command displays the server's shop interface, showing all available
+        items and roles that can be purchased with server currency. The shop
+        includes detailed information about pricing, stock availability, and
+        any usage limitations for each item.
+        """
         # Acknowledge the command immediately
         await ctx.defer(ephemeral=True)
         
@@ -399,6 +427,13 @@ class Economy(commands.Cog):
     @commands.hybrid_group(name="shopadmin", description="Shop management commands")
     @commands.has_permissions(administrator=True)
     async def shopadmin(self, ctx: commands.Context):
+        """Administrative tools for managing the server shop
+        
+        This command group provides powerful tools for server administrators to
+        manage the shop system. It includes functionality for adding/removing items,
+        setting up shop channels, configuring prices, and managing stock levels.
+        These commands require administrator permissions.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
@@ -415,6 +450,13 @@ class Economy(commands.Cog):
         channel: Optional[discord.TextChannel] = None,
         log_channel: Optional[discord.TextChannel] = None
     ):
+        """Configure dedicated channels for the shop system
+        
+        This command sets up the main shop display channel where members can browse
+        and purchase items. Optionally, you can also specify a separate logging
+        channel to record all purchase transactions for administrative review.
+        Setting up these channels creates a centralized shopping experience.
+        """
         await ctx.defer()
         
         shop_data = self.bot.db.get_shop_data(ctx.guild.id)
@@ -456,6 +498,13 @@ class Economy(commands.Cog):
         max_per_user="Maximum purchases per user (optional)"
     )
     async def additem(self, ctx: commands.Context, name: str, price: float, stock: int, max_per_user: Optional[int] = None):
+        """Create a new purchasable item in the server shop
+        
+        This command adds a new general item to the server shop with customizable
+        properties such as name, price, stock quantity, and optional purchase limits.
+        Each item receives a unique code for tracking purchases and inventory.
+        Added items appear immediately in the shop for members to purchase.
+        """
         await ctx.defer()
         
         item = {
@@ -495,6 +544,13 @@ class Economy(commands.Cog):
         max_per_user: Optional[int] = None,
         time_limit: Optional[str] = None
     ):
+        """Add a purchasable role to the server shop
+        
+        This command creates a new role listing in the server shop that members
+        can purchase with currency. The role can be configured with various options
+        including price, quantity available, purchase limits per user, and optional
+        time restrictions that automatically remove the role after a set duration.
+        """
         await ctx.defer()
         
         item = {
@@ -522,6 +578,13 @@ class Economy(commands.Cog):
     @shopadmin.command(name="removeitem", description="Remove an item from the shop")
     @app_commands.describe(code="Item code to remove")
     async def removeitem(self, ctx: commands.Context, code: str):
+        """Delete an item or role from the server shop
+        
+        This command permanently removes an item or role from the shop inventory
+        using its unique code. Once removed, the item will no longer be available
+        for purchase, though existing purchases will not be affected. Use this
+        command when you want to discontinue offering specific items.
+        """
         await ctx.defer()
         
         shop_data = self.bot.db.get_shop_data(ctx.guild.id)
@@ -552,6 +615,13 @@ class Economy(commands.Cog):
     @commands.hybrid_command(name="balance", description="Check your or another user's balance")
     @app_commands.describe(user="The user to check balance for (optional)")
     async def balance(self, ctx: commands.Context, user: Optional[discord.Member] = None) -> None:
+        """View currency and Mgem balances for yourself or others
+        
+        This command displays the current financial standing of a user, including
+        their regular currency balance and Mgem premium currency holdings. When used
+        without specifying a user, it shows your own balance. This command helps
+        track personal finances and economic activity within the server.
+        """
         user = user or ctx.author
         balance = self.bot.db.get_user_balance(user.id)
         mgems = self.bot.db.get_user_mgems(user.id)
@@ -567,6 +637,13 @@ class Economy(commands.Cog):
         amount="Amount to give"
     )
     async def give(self, ctx: commands.Context, user: discord.Member, amount: float) -> None:
+        """Transfer regular currency to another server member
+        
+        This command allows you to give some of your currency to another user
+        in the server. The transfer is immediate and requires you to have sufficient
+        funds. This feature enables a player-driven economy where regular currency
+        can circulate freely between members for trades, services, or gifts.
+        """
         if amount <= 0:
             await ctx.reply("Amount must be positive!")
             return
@@ -588,6 +665,13 @@ class Economy(commands.Cog):
 
     @commands.hybrid_command(name="forbes", description="View detailed wealth statistics")
     async def forbes(self, ctx: commands.Context) -> None:
+        """Display comprehensive economic statistics for the server
+        
+        This command generates a detailed economic report showing wealth distribution
+        across the server. It includes metrics such as total money in circulation,
+        average balances, richest members with their wealth percentages, and Mgem
+        distribution statistics. This provides transparency into the server economy.
+        """
         # Get top 10 richest users who are in this guild
         rich_list = self.bot.db.get_top_balances(ctx.guild.id, 10)
         total_money = sum(user["balance"] for user in rich_list)
@@ -647,6 +731,13 @@ class Economy(commands.Cog):
 
     @commands.hybrid_command(name="transactions", description="View your purchase history")
     async def transactions(self, ctx: commands.Context):
+        """Retrieve a complete log of your shop purchases
+        
+        This command generates and sends you a private record of all your transactions
+        in the server shop. The log includes detailed information for each purchase
+        such as item names, prices paid, purchase dates, and order IDs. For role
+        purchases, it also displays role information and any time limitations.
+        """
         await ctx.defer(ephemeral=True)
         transactions = self.bot.db.get_user_purchases(ctx.author.id)
 
@@ -681,6 +772,13 @@ class Economy(commands.Cog):
 
     @commands.hybrid_command(name="daily", description="Claim your daily reward")
     async def daily(self, ctx: commands.Context) -> None:
+        """Collect a free currency bonus once every 24 hours
+        
+        This command grants you a random amount of free currency that can be claimed
+        once per day. The reward helps boost your economy participation and provides
+        a consistent way to earn currency by being active in the server. If you've
+        already claimed your reward today, the command will show when you can claim again.
+        """
         last_claim = self.bot.db.get_last_daily_claim(ctx.author.id)
         current_time = datetime.now(timezone.utc)
 
@@ -711,4 +809,4 @@ class Economy(commands.Cog):
         )
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Economy(bot)) 
+    await bot.add_cog(Economy(bot))

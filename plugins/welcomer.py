@@ -351,6 +351,20 @@ class Welcomer(commands.Cog):
  
     @commands.hybrid_group(name="welcomer", description="Manage welcome messages", invoke_without_command=True)
     async def welcomer_group(self, ctx: commands.Context) -> None:
+        """
+        You can manage the welcome message settings using this command.
+        Use the subcommands to edit the message, toggle it on/off, or test it.
+        
+        Placeholders: 
+        `{user.mention}`, `{user.name}`, `{user.display_name}`, `{user.id}`,
+        `{user.avatar}`, `{guild.name}`, `{guild.id}`, `{guild.member_count}`,
+        `{guild.owner}`, `{guild.owner.name}`, `{guild.owner.mention}`,
+        `{guild.created_at}`, `{user.created_at}`, `{user.joined_at}`,
+        `{user.avatar_url}`, `{guild.icon}`, `{guild.banner}`,
+        `{guild.description}`, `{guild.features}`, `{guild.premium_tier}`,
+        `{guild.premium_subscribers}`, `{guild.roles}`, `{user.top_role}`,
+        `{user.roles}`
+        """
         if ctx.invoked_subcommand is None:
             await ctx.reply(embed=discord.Embed(title="Welcomer Commands",
                 description="- `?welcomer edit`\n- `?welcomer toggle`\n- `?welcomer test`",
@@ -359,6 +373,8 @@ class Welcomer(commands.Cog):
     @welcomer_group.command(name="edit", description="Edit the welcome message")
     @commands.has_permissions(manage_guild=True)
     async def welcomer_edit(self, ctx: commands.Context) -> None:
+        """Pretty self guiding command, try it out. You wont need any help."""
+
         welcomer_data = self.bot.db.get_welcomer_settings(ctx.guild.id)
         if not welcomer_data:
             welcomer_data = {'enabled': False, 'channel_id': None, 'title': 'Welcome!',
@@ -419,6 +435,7 @@ class Welcomer(commands.Cog):
     @welcomer_group.command(name="toggle", description="Enable or disable the welcomer")
     @commands.has_permissions(manage_guild=True)
     async def welcomer_toggle(self, ctx: commands.Context, state: str) -> None:
+        """Toggle the state of the welcomer on or off."""
         if state.lower() not in ['on', 'off']:
             return await ctx.reply("Please specify 'on' or 'off'.")
         welcomer_data = self.bot.db.get_welcomer_settings(ctx.guild.id) or {}
@@ -429,6 +446,7 @@ class Welcomer(commands.Cog):
     @welcomer_group.command(name="test", description="Send a test welcome message")
     @commands.has_permissions(manage_guild=True)
     async def welcomer_test(self, ctx: commands.Context) -> None:
+        """Send a test welcome message to the channel."""
         welcomer_data = self.bot.db.get_welcomer_settings(ctx.guild.id)
         if not welcomer_data:
             welcomer_data = {'enabled': False, 'channel_id': None, 'title': 'Welcome!',

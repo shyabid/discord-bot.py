@@ -27,6 +27,7 @@ class Prefix(commands.Cog):
         description="Change the prefix for the bot."
     )
     async def prefix(self, ctx: commands.Context):
+        """Command prefix management system"""
         if ctx.invoked_subcommand is None:
             await self.prefix_list(ctx)
     
@@ -37,6 +38,7 @@ class Prefix(commands.Cog):
     @app_commands.describe(prefix="The prefix to set.")
     @commands.has_permissions(manage_guild=True)
     async def prefix_set(self, ctx: commands.Context, prefix: str):
+        """Replace all existing prefixes with a single new one"""
         if not self.validate_prefix(prefix):
             return
 
@@ -49,6 +51,7 @@ class Prefix(commands.Cog):
     )
     @commands.has_permissions(manage_guild=True)
     async def prefix_reset(self, ctx: commands.Context):
+        """Restore the default command prefix"""
         self.bot.db.set_guild_prefixes(str(ctx.guild.id), ["?"])
         await ctx.reply("Prefix reset to default.")
 
@@ -57,6 +60,7 @@ class Prefix(commands.Cog):
         description="List all prefixes for the bot."
     )
     async def prefix_list(self, ctx: commands.Context):
+        """Show all active command prefixes"""
         prefixes = self.bot.db.get_guild_prefixes(str(ctx.guild.id))
         if len(prefixes) == 1:
             message = f"My prefix for the server is `{prefixes[0]}`"
@@ -72,6 +76,7 @@ class Prefix(commands.Cog):
     )
     @app_commands.describe(prefix="The prefix to remove.")
     async def prefix_remove(self, ctx: commands.Context, prefix: str):
+        """Delete a specific command prefix"""
         if not self.validate_prefix(prefix):
             return
 
@@ -90,6 +95,7 @@ class Prefix(commands.Cog):
     )
     @app_commands.describe(prefix="The prefix to add.")
     async def prefix_add(self, ctx: commands.Context, prefix: str):
+        """Add a new command prefix"""
         if not self.validate_prefix(prefix):
             return
 

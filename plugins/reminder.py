@@ -63,7 +63,13 @@ class Reminder(commands.Cog):
         invoke_without_command=True
     )
     async def reminder(self, ctx: commands.Context, duration: str, *, message: str) -> None:
-        """Set a reminder. Usage: ?rm <time> <message>"""
+        """Personal time-based notification system
+        
+        This command creates a timed reminder that will notify you after the specified
+        duration has elapsed. The reminder includes your custom message and provides a
+        link back to the original context where it was created. Reminders are persistent
+        across bot restarts and will be delivered even if the bot briefly goes offline.
+        """
         seconds = parse_time_string(duration)
         if seconds <= 0:
             await ctx.reply("Please provide a valid time.")
@@ -87,7 +93,13 @@ class Reminder(commands.Cog):
 
     @reminder.command(name="list")
     async def list_reminders(self, ctx: commands.Context) -> None:
-        """List all your active reminders."""
+        """View all your pending reminder notifications
+        
+        This command displays a detailed list of all your currently active reminders
+        in the server. The list shows the exact message content for each reminder along
+        with the remaining time until it triggers. This helps you keep track of pending
+        notifications you've previously set up.
+        """
         reminders = self.bot.db.get_user_reminders(ctx.author.id, ctx.guild.id)
         
         if not reminders:
@@ -112,7 +124,13 @@ class Reminder(commands.Cog):
 
     @reminder.command(name="clear")
     async def clear_reminders(self, ctx: commands.Context) -> None:
-        """Clear all your active reminders."""
+        """Cancel and remove all pending reminders
+        
+        This command permanently deletes all your active reminders in the current server.
+        Use this when you want to clean up your reminder list or cancel multiple notifications
+        at once. This action cannot be undone, and you'll need to create new reminders
+        if you want to be notified about these items in the future.
+        """
         count = self.bot.db.clear_user_reminders(ctx.author.id, ctx.guild.id)
         
         if count > 0:

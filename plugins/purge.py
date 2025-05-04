@@ -5,7 +5,7 @@ from discord import app_commands
 from typing import List, Optional, Callable, Union
 
 class Purge(commands.Cog):
-    """Purge commands"""
+    """Message cleanup and moderation tools"""
 
     def __init__(self, bot: Morgana) -> None:
         self.bot: Morgana = bot
@@ -18,8 +18,8 @@ class Purge(commands.Cog):
     )
     @commands.has_permissions(manage_messages=True)
     async def purge(self, ctx: commands.Context) -> None:
-        if ctx.invoked_subcommand is None:
-            await ctx.reply("Please specify a purge subcommand.")
+        """Bulk message deletion system with filtering capabilities"""
+        await self.purge_all(ctx)
 
     @purge.command(name="all", description="Delete a specified number of messages")
     @app_commands.describe(limit="Number of messages to delete (max 1000)")
@@ -29,6 +29,7 @@ class Purge(commands.Cog):
         ctx: commands.Context, 
         limit: int = 100
     ) -> None:
+        """Remove messages without any filtering criteria"""
         if limit > 1000:
             return await ctx.reply(self.limit_err)
         
@@ -47,6 +48,7 @@ class Purge(commands.Cog):
         user: discord.Member, 
         limit: int = 100
     ) -> None:
+        """Remove messages from a single user account"""
         check: Callable[[discord.Message], bool] = (
             lambda msg: msg.author == user
         )
@@ -70,6 +72,7 @@ class Purge(commands.Cog):
         ctx: commands.Context, 
         limit: int = 100
     ) -> None:
+        """Remove messages containing URLs"""
         check: Callable[[discord.Message], bool] = (
             lambda msg: "http://" in msg.content 
             or "https://" in msg.content
@@ -99,6 +102,7 @@ class Purge(commands.Cog):
         ctx: commands.Context, 
         limit: int = 100
     ) -> None:
+        """Remove messages that ping users or roles"""
         def check(msg: discord.Message) -> bool:
             return (len(msg.mentions) > 0 
                    or len(msg.role_mentions) > 0 
@@ -124,6 +128,7 @@ class Purge(commands.Cog):
         ctx: commands.Context, 
         limit: int = 100
     ) -> None:
+        """Remove messages with rich embeds"""
         check: Callable[[discord.Message], bool] = (
             lambda msg: len(msg.embeds) > 0
         )
@@ -154,6 +159,7 @@ class Purge(commands.Cog):
         text: str, 
         limit: int = 100
     ) -> None:
+        """Remove messages containing specific text patterns"""
         check: Callable[[discord.Message], bool] = (
             lambda msg: text.lower() in msg.content.lower()
         )
@@ -182,6 +188,7 @@ class Purge(commands.Cog):
         ctx: commands.Context, 
         limit: int = 100
     ) -> None:
+        """Remove messages with file attachments"""
         check: Callable[[discord.Message], bool] = (
             lambda msg: len(msg.attachments) > 0
         )

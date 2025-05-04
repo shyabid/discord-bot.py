@@ -45,7 +45,7 @@ class PaginatedHelpView(discord.ui.View):
         await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
 class Help(commands.Cog):
-    """Custom help command for the bot."""
+    """Interactive command documentation system"""
 
     def __init__(self, bot: Morgana):
         self.bot = bot
@@ -168,6 +168,14 @@ class Help(commands.Cog):
         description="Get help on commands or list all plugins",
     )
     async def help_command(self, ctx: commands.Context, *, command: Optional[str] = None) -> None:
+        """Comprehensive documentation and command discovery system
+        
+        This command provides an interactive help interface for exploring all available
+        commands and features. When used without parameters, it displays a list of all
+        plugin categories with a dropdown menu for easy navigation. When specifying a
+        command name, it shows detailed usage instructions, available parameters, and
+        examples for that specific command.
+        """
         try:
             if command:
                 if ' ' in command:

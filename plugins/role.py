@@ -27,6 +27,7 @@ class Role(commands.Cog):
         self, 
         ctx: commands.Context
     ) -> None:
+        """Role management system"""
         if not ctx.invoked_subcommand:
             if len(ctx.message.content.split()) > 2:
                 member_name = ctx.message.content.split()[1].lower()
@@ -64,6 +65,7 @@ class Role(commands.Cog):
         user: discord.Member, 
         role: discord.Role
     ) -> None:
+        """Assign a role to a server member"""
         if role in user.roles:
             await ctx.reply(f"{user.mention} already has the role {role.name}.")
             return
@@ -82,6 +84,7 @@ class Role(commands.Cog):
         user: discord.Member, 
         role: discord.Role
     ) -> None:
+        """Remove a role from a server member"""
         if role not in user.roles:
             await ctx.reply(f"{user.mention} doesn't have the role {role.name}.")
             return
@@ -100,6 +103,7 @@ class Role(commands.Cog):
         name: str, 
         color = discord.Color.default()
     ) -> None:
+        """Create a new server role with custom properties"""
         new_role: discord.Role = await ctx.guild.create_role(name=name, color=color)
         await ctx.reply(f"Created new role: {new_role.name}")
 
@@ -113,6 +117,7 @@ class Role(commands.Cog):
         ctx: commands.Context, 
         role: str
     ) -> None:
+        """Display detailed information about a server role"""
         role_obj: Optional[discord.Role] = await self.bot.find_role(ctx.guild, role)
         if not role_obj:
             await ctx.reply("Couldn't find that role.")
@@ -146,7 +151,7 @@ class Role(commands.Cog):
         name: Optional[str] = None, 
         color: Optional[str] = None
     ) -> None:
-
+        """Modify an existing role's properties"""
         update_params: dict = {}
         if name:
             update_params['name'] = name
@@ -176,7 +181,7 @@ class Role(commands.Cog):
         role: discord.Role,
         duration: str
     ) -> None:
-        
+        """Assign a role that automatically expires after specified time"""
         duration = parse_time_string(duration)
         
         if role in user.roles:
@@ -211,7 +216,7 @@ class Role(commands.Cog):
         role: str,
         duration: str
     ) -> None:
-        
+        """Quick command for temporary role assignment"""
         user: discord.Member = await find_member(guild=ctx.guild, query=user)
         role: discord.Role = await find_role(guild=ctx.guild, query=role)
         duration: int = parse_time_string(duration)

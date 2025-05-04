@@ -21,6 +21,13 @@ class Meta(commands.Cog):
         self, 
         ctx: commands.Context
     ) -> None:
+        """Displays comprehensive information about the current server
+
+        This command provides detailed statistics and metrics about the server,
+        including member counts, channel information, emoji usage, role hierarchy,
+        server features, and boost status. The information is presented in a
+        well-formatted embed for easy readability.
+        """
         
         guild = ctx.guild
         roles = [role.name.replace('@', '@\u200b') for role in guild.roles if not role.is_bot_managed()]

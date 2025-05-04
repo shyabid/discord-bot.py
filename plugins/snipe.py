@@ -7,6 +7,8 @@ import time
 from bot import Morgana
 
 class Snipe(commands.Cog):
+    """Message recovery and edit history tracking"""
+    
     def __init__(self, bot: Morgana):
         self.bot = bot
         self.deleted_messages = {}
@@ -14,6 +16,7 @@ class Snipe(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
+        """Record deleted messages for future retrieval"""
         if message.guild and not message.author.bot:
             if message.guild.id not in self.deleted_messages:
                 self.deleted_messages[message.guild.id] = []
@@ -23,6 +26,7 @@ class Snipe(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+        """Track edited messages and retain original content"""
         if before.guild and not before.author.bot:
             if before.guild.id not in self.edited_messages:
                 self.edited_messages[before.guild.id] = []
@@ -34,14 +38,14 @@ class Snipe(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     @app_commands.describe(count="Number of messages to snipe (default: 1, max: 8)")
     async def snipe(self, ctx, count: int = 1):
-        """Snipe the last deleted message(s) in the server"""     
+        """Recover recently deleted messages"""
         await self._snipe_deleted(ctx, min(count, 8))
 
     @snipe.command(name="edited")
     @commands.has_permissions(manage_messages=True)
     @app_commands.describe(count="Number of edited messages to show (default: 1, max: 8)")
     async def snipe_edited(self, ctx, count: int = 1):
-        """Shows info about the last edited message(s)"""
+        """View message edit history with before/after comparison"""
         count = min(count, 8)
         if not self.edited_messages.get(ctx.guild.id):
             await ctx.reply("No edited messages found.")
@@ -69,21 +73,20 @@ class Snipe(commands.Cog):
     @commands.command(name="snipe_edited", aliases=["editsnipe"])
     @commands.has_permissions(manage_messages=True)
     async def snipe_edited_command(self, ctx, count: int = 1):
-        """Shows info about the last edited message(s)"""
+        """Legacy command for edit history retrieval"""
         await self.snipe_edited(ctx, count)
 
     @snipe.command(name="suiiki")
     @commands.has_permissions(manage_messages=True)
     async def snipe_suiiki(self, ctx):
-        """Shows the last 3 deleted messages"""
+        """Quick access to the three most recent deleted messages"""
         await self._snipe_deleted(ctx, 3)
-
 
     @snipe.command(name="user")
     @commands.has_permissions(manage_messages=True)
     @app_commands.describe(user="The user to snipe messages from", count="Number of messages to snipe (default: 1, max: 8)")
     async def snipe_user(self, ctx, user: discord.Member, count: int = 1):
-        """Shows the last deleted message(s) of a specific user"""
+        """Recover deleted messages from a specific user"""
         if not self.deleted_messages.get(ctx.guild.id):
             await ctx.reply("No deleted messages found.")
             return
@@ -107,6 +110,7 @@ class Snipe(commands.Cog):
             view.message = await ctx.reply(embed=embeds[-1], view=view)
 
     async def _snipe_deleted(self, ctx, count: int):
+        """Internal method to handle deleted message recovery"""
         if not self.deleted_messages.get(ctx.guild.id):
             await ctx.reply("No deleted messages found.")
             return
@@ -124,6 +128,7 @@ class Snipe(commands.Cog):
             view.message = await ctx.reply(embed=embeds[-1], view=view)
 
     async def _create_snipe_embed(self, message, deleted_at):
+        """Format deleted message data into readable embed"""
         embed = discord.Embed(color=discord.Color.dark_grey())
         embed.description = f"🚮 Message sent by {message.author.mention} deleted in {message.channel.mention}"
         embed.description += f" at <t:{int(deleted_at.timestamp())}:T>\n\n"
@@ -142,6 +147,7 @@ class Snipe(commands.Cog):
         return embed
 
     async def _send_snipe_embed(self, ctx, message):
+        """Display a single sniped message"""
         embed = await self._create_snipe_embed(message, discord.utils.utcnow())
         await ctx.reply(embed=embed)
 

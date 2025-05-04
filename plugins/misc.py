@@ -25,29 +25,27 @@ class Misc(commands.Cog):
 
     @commands.hybrid_group(name="misc")
     async def misc(self, ctx: commands.Context):
-        """Misc commands group"""
+        """Collection of various utility and information commands
+        
+        This command group provides access to a diverse set of informational tools
+        and utilities that don't fit into other specific categories. Includes
+        reference resources like Urban Dictionary, IMDb, the periodic table,
+        dictionary definitions, and song lyrics finder, all accessible through
+        an intuitive subcommand interface.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.reply("Please specify a correct subcommand.\n> Available subcommands: `urban-dictionary`, `imdb`, `periodic-table`, `define`, `lyrics`")
 
     @misc.command(name="periodic-table", description="Get information about an element from the periodic table")
     @app_commands.describe(query="Element name, atomic number, or symbol (optional)")
     async def periodic_table(self, ctx: commands.Context, query: Optional[str] = None):
-        """
-        Get information about an element from the periodic table.
-
-        **Usage:**
-        ?misc periodic-table [query]
-        /misc periodic-table [query]
-
-        **Parameters:**
-        query (str, optional): Element name, atomic number, or symbol. If not provided, a random element will be selected.
-
-        **Example:**
-        ?misc periodic-table Carbon
-        ?misc periodic-table 6
-        ?misc periodic-table C
-        /misc periodic-table Oxygen
-        /misc periodic-table
+        """Access comprehensive chemical element information
+        
+        This command provides detailed data about elements from the periodic table,
+        including physical properties, atomic characteristics, historical discovery
+        information, and a brief scientific summary. When used without specifying
+        an element, it returns information about a randomly selected element for
+        educational exploration.
         """
         async with aiohttp.ClientSession() as session:
             if query:
@@ -79,40 +77,25 @@ class Misc(commands.Cog):
 
     @commands.command(name="periodic-table", aliases=["pt", "element"], description="Get information about an element from the periodic table")
     async def periodic_table_command(self, ctx: commands.Context, *, query: Optional[str] = None):
-        """
-        Get information about an element from the periodic table.
-
-        Usage:
-        ?periodic-table [query]
-        ?pt [query]
-        ?element [query]
-
-        Parameters:
-        query (str, optional): Element name, atomic number, or symbol. If not provided, a random element will be selected.
-
-        Example:
-        ?periodic-table Carbon
-        ?pt 6
-        ?element C
+        """Access comprehensive chemical element information
+        
+        This command provides detailed data about elements from the periodic table,
+        including physical properties, atomic characteristics, historical discovery
+        information, and a brief scientific summary. When used without specifying
+        an element, it returns information about a randomly selected element for
+        educational exploration.
         """
         await self.periodic_table(ctx, query)
     
     @misc.command(name="urbandictionary", description="Get definitions from Urban Dictionary")
     @app_commands.describe(word="Word to look up (required)")
     async def urban_dictionary(self, ctx: commands.Context, word: str):
-        """
-        Get definitions from Urban Dictionary.
-
-        **Usage:**
-        ?misc ud <word>
-        /misc ud <word>
-
-        **Parameters:**
-        word (str, required): The word to look up in Urban Dictionary.
-
-        **Example:**
-        ?misc ud hello
-        /misc ud programming
+        """Search for slang and colloquial term definitions
+        
+        This command queries Urban Dictionary to find user-submitted definitions
+        for slang terms, internet memes, and other informal language. Results include
+        the definition, usage examples, and community ratings. The interactive display
+        allows browsing through multiple definition entries when available.
         """
         async with aiohttp.ClientSession() as session:
             url = f"https://api.urbandictionary.com/v0/define?term={word}"
@@ -156,17 +139,12 @@ class Misc(commands.Cog):
 
     @commands.command(name="urbandictionary", aliases=["urban", "ud", "urbandict"], description="Get definitions from Urban Dictionary")
     async def ud_command(self, ctx: commands.Context, *, word: str):
-        """
-        Get definitions from Urban Dictionary.
-
-        Usage:
-        ?ud <word>
-
-        Parameters:
-        word (str, required): The word to look up in Urban Dictionary.
-
-        Example:
-        ?ud hello
+        """Search for slang and colloquial term definitions
+        
+        This command queries Urban Dictionary to find user-submitted definitions
+        for slang terms, internet memes, and other informal language. Results include
+        the definition, usage examples, and community ratings. The interactive display
+        allows browsing through multiple definition entries when available.
         """
         await self.urban_dictionary(ctx, word)
 
@@ -174,17 +152,12 @@ class Misc(commands.Cog):
     @misc.command(name="imdb", description="Get information about a movie or TV show from IMDb")
     @app_commands.describe(title="Title of the movie or TV show to look up (required)")
     async def imdb_command(self, ctx: commands.Context, *, title: str):
-        """
-        Get information about a movie or TV show from IMDb.
-
-        Usage:
-        ?imdb <title>
-
-        Parameters:
-        title (str, required): The title of the movie or TV show to look up.
-
-        Example:
-        ?imdb Iron Man
+        """Retrieve detailed film and television show information
+        
+        This command searches the Internet Movie Database (IMDb) for comprehensive
+        details about movies, TV shows, and other video media. Results include
+        production information, cast details, ratings from various sources,
+        plot summaries, and other relevant metadata for the requested title.
         """
         await self.imdb(ctx, title)
 
@@ -234,9 +207,6 @@ class Misc(commands.Cog):
     async def imdb_slash(self, ctx:commands.Context, title: str):
         """
         Get information about a movie or TV show from IMDb.
-
-        Parameters:
-        title (str): The title of the movie or TV show to look up.
         """
         await self.imdb(ctx, title)
         
@@ -244,19 +214,13 @@ class Misc(commands.Cog):
     @misc.command(name="define", description="Get the definition of a word")
     @app_commands.describe(word="The word to define")
     async def define(self, ctx: commands.Context, word: str):
-        """
-        Get the definition of a word using the Dictionary API.
-
-        **Usage:**
-        ?misc define <word>
-        /misc define <word>
-
-        **Parameters:**
-        word (str): The word to define.
-
-        **Example:**
-        ?misc define tough
-        /misc define tough
+        """Look up formal dictionary definitions for words
+        
+        This command retrieves official definitions from a dictionary API,
+        providing proper meanings, phonetic pronunciations, parts of speech,
+        and usage examples when available. Useful for language learning,
+        writing assistance, and resolving vocabulary questions with
+        authoritative references.
         """
         url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
 
@@ -299,36 +263,25 @@ class Misc(commands.Cog):
 
     @commands.command(name="define", description="Get the definition of a word")
     async def define_command(self, ctx: commands.Context, word: str):
-        """
-        Get the definition of a word using the Dictionary API.
-
-        **Usage:**
-        ?define <word>
-
-        **Parameters:**
-        word (str): The word to define.
-
-        **Example:**
-        ?define tough
+        """Look up formal dictionary definitions for words
+        
+        This command retrieves official definitions from a dictionary API,
+        providing proper meanings, phonetic pronunciations, parts of speech,
+        and usage examples when available. Useful for language learning,
+        writing assistance, and resolving vocabulary questions with
+        authoritative references.
         """
         await self.define(ctx, word=word)
     
     
     @misc.command(name="lyrics", description="Get lyrics for a song")
     async def lyrics(self, ctx: commands.Context, *, query: str):
-        """
-        Get lyrics for a song using the PopCat API.
-
-        **Usage:**
-        ?misc lyrics <song name>
-        /misc lyrics <song name>
-
-        **Parameters:**
-        query (str): The name of the song to search for lyrics.
-
-        **Example:**
-        ?misc lyrics Shape of You
-        /misc lyrics Shape of You
+        """Find and display lyrics for music tracks
+        
+        This command searches for and displays the full lyrics for a specified
+        song. Results include the complete song text along with artist information
+        and album artwork when available. For longer lyrics, the output may be
+        truncated to comply with Discord's message length limitations.
         """
         formatted_query = query.replace(" ", "+")
         api_url = f"https://api.popcat.xyz/lyrics?song={formatted_query}"
@@ -378,17 +331,12 @@ class Misc(commands.Cog):
 
     @commands.command(name="lyrics", description="Get lyrics for a song")
     async def lyrics_command(self, ctx: commands.Context, *, query: str):
-        """
-        Get lyrics for a song using an API.
-
-        **Usage:**
-        ?lyrics <song name>
-
-        **Parameters:**
-        query (str): The name of the song to search for lyrics.
-
-        **Example:**
-        ?lyrics Shape of You
+        """Find and display lyrics for music tracks
+        
+        This command searches for and displays the full lyrics for a specified
+        song. Results include the complete song text along with artist information
+        and album artwork when available. For longer lyrics, the output may be
+        truncated to comply with Discord's message length limitations.
         """
         await self.lyrics(ctx, query=query)
 
