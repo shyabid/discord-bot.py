@@ -18,7 +18,6 @@ plguins = [
     "plugins.welcomer",
     "plugins.snipe",
     "plugins.waifu",
-    "plugins.role",
     "plugins.purge",
     "plugins.vccontrol",
     "plugins.mod",

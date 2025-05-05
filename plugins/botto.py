@@ -8,7 +8,10 @@ import csv
 import shutil
 import io
 import asyncio
+import random
+import string
 import psutil
+import subprocess
 from discord.ext import commands
 from datetime import timedelta
 import platform
@@ -388,37 +391,41 @@ class Botto(commands.Cog):
         await ctx.reply(embed=embed)
             
     async def _fetch_commits(self) -> str:
-        """Fetch the latest commits from GitHub."""
-        repo_url = "https://api.github.com/repos/shyabid/discord-bot.py/commits"
-        
+        """Fetch the latest commits from local git repository."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(repo_url) as response:
-                    if response.status == 200:
-                        commit_data = await response.json()
-                        commit_list = []
-                        for commit in commit_data[:3]:
-                            sha = commit['sha'][:7]
-                            message = commit['commit']['message'].split('\n')[0][:50]
-                            author = commit['commit']['author']['name']
-                            utc_time = datetime.fromisoformat(commit['commit']['author']['date'].rstrip('Z'))
-                            local_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["timezone"]))
-                            date = discord.utils.format_dt(local_time, style='R')
-                            
-                            commit_url = commit['html_url']
-                            author_url = commit['author']['html_url'] if commit['author'] else None
-                            
-                            sha_link = f"[`{sha}`]({commit_url})"
-                            author_link = f"[{author}]({author_url})" if author_url else author
-                            
-                            commit_list.append(f"{sha_link} - {author_link} - {message} ({date})")
-
-                        return "\n".join(commit_list)
-        except Exception:
-            return "Failed to fetch commit data."
-        
-        return "No commit data available."
-
+            # Check if running from a git repository
+            git_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.git')
+            if not os.path.exists(git_dir):
+                return "Not running from a git repository"
+                
+            # Use git commands to get commit history
+            git_cmd = ["git", "log", "-3", "--pretty=format:%h§%s§%an§%ar"]
+            
+            process = await asyncio.create_subprocess_exec(
+                *git_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode != 0:
+                return "Failed to fetch commit data"
+                
+            commit_list = []
+            commits = stdout.decode().split('\n')
+            
+            for commit in commits:
+                if not commit:
+                    continue
+                sha, message, author, date = commit.split('§')
+                commit_list.append(f"`{sha}` - {author} - {message} ({date})")
+                
+            return "\n".join(commit_list)
+                
+        except Exception as e:
+            return f"Failed to fetch commit data: {str(e)}"
+    
+    
     
     @commands.command(name="changepfp")
     async def changepfp(self, ctx: commands.Context, url: str):
@@ -500,7 +507,7 @@ class Botto(commands.Cog):
         except Exception as e:
             conn.close()
             raise e
-    
+
     @app_commands.command(name="tables", description="List all tables in the database")
     async def list_tables(self, interaction: discord.Interaction):
         """Show all available tables in the database."""
@@ -1164,8 +1171,8 @@ class Botto(commands.Cog):
             # Require a typed confirmation
             if not self.confirmation_phrase:
                 # Generate random confirmation phrase
-                import random
-                import string
+
+
                 self.confirmation_phrase = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                 
                 await interaction.response.send_message(

@@ -1,8 +1,8 @@
-from discord.ext import commands
-from discord import app_commands
 import discord
 import requests
 from utils import PaginationView
+from discord import app_commands
+from discord.ext import commands
 from typing import List, Dict, Any, Optional
 
 class Anime(commands.Cog):

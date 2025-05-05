@@ -9,19 +9,21 @@ import aiohttp
 import re
 import urllib
 from discord import app_commands
-from typing import Optional
+from typing import Optional, List, Literal, Union, Dict, Any
 from utils import PaginationView
 import random
 import requests
 import json
-from typing import Literal, Union
 import os
+from libgen_api_enhanced import LibgenSearch
+import functools
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Misc(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
+        self._executor = ThreadPoolExecutor(max_workers=2)
 
     @commands.hybrid_group(name="misc")
     async def misc(self, ctx: commands.Context):
@@ -340,7 +342,404 @@ class Misc(commands.Cog):
         """
         await self.lyrics(ctx, query=query)
 
+    @commands.hybrid_group(name="book", description="Search and download books from Library Genesis")
+    async def book(self, ctx: commands.Context):
+        """Advanced book search and download system
+        
+        This command provides a comprehensive interface to search for books,
+        research papers, and other publications across the Library Genesis
+        database. It offers multiple search methods, advanced filtering options,
+        and direct download links when available.
+        """
+        if ctx.invoked_subcommand is None:
+            await ctx.reply("Please specify a correct subcommand.\n> Available subcommands: `search`, `author`, `advanced`")
+    
+    @book.command(name="search", description="Search for books by title")
+    @app_commands.describe(
+        query="Title of the book to search for (minimum 3 characters)",
+        extension="Filter by file extension (pdf, epub, mobi, etc)",
+        language="Filter by language",
+        year="Filter by publication year"
+    )
+    async def book_search(
+        self, 
+        ctx: commands.Context, 
+        query: str,
+        extension: Optional[str] = None,
+        language: Optional[str] = None,
+        year: Optional[str] = None
+    ):
+        """Search for books by title with optional filters
+        
+        This command performs a comprehensive search across Library Genesis
+        for books matching the provided title. Results can be further refined
+        using optional filters for file format, language, and publication year.
+        For each match, detailed information and download links are provided.
+        """
+        if len(query) < 3:
+            await ctx.reply("Search query must be at least 3 characters long.")
+            return
+            
+        await ctx.defer()
+        
+        clean_query = query.strip('"\'')
+        
+        filters = {}
+        if extension: filters["Extension"] = extension
+        if language: filters["Language"] = language
+        if year: filters["Year"] = year
+            
+        try:
+            # Run the potentially slow network operation in a thread pool
+            if filters:
+                results = await self._run_in_executor(
+                    self._search_books_filtered, "title", clean_query, filters
+                )
+            else:
+                results = await self._run_in_executor(
+                    self._search_books, "title", clean_query
+                )
+            
+            # If no results found, try to find common misspellings
+            if not results:
+                alternative_queries = self._find_similar_titles(clean_query)
+                alternative_results = []
+                
+                # Try up to 2 alternative spellings
+                for alt_query in alternative_queries[:2]:
+                    if filters:
+                        alt_results = await self._run_in_executor(
+                            self._search_books_filtered, "title", alt_query, filters
+                        )
+                    else:
+                        alt_results = await self._run_in_executor(
+                            self._search_books, "title", alt_query
+                        )
+                    
+                    if alt_results:
+                        alternative_results.append((alt_query, alt_results))
+                
+                if alternative_results:
+                    # Use the first successful alternative
+                    alt_query, results = alternative_results[0]
+                    await ctx.send(f"No books found for '{clean_query}'. Showing results for '{alt_query}' instead.")
+                else:
+                    suggestions = ", ".join([f"`{s}`" for s in alternative_queries[:5]]) if alternative_queries else "none found"
+                    await ctx.reply(f"No books found for '{clean_query}'. Did you mean: {suggestions}?\n\nTip: Try using broader search terms or check spelling.")
+                    return
+            
+            await self._send_book_results(ctx, results, clean_query)
+        except Exception as e:
+            await ctx.reply(f"An error occurred while searching for books: {str(e)}")
+    
+    @book.command(name="author", description="Search for books by author name")
+    @app_commands.describe(
+        author="Name of the author to search for (minimum 3 characters)",
+        extension="Filter by file extension (pdf, epub, mobi, etc)",
+        language="Filter by language",
+        year="Filter by publication year"
+    )
+    async def book_author(
+        self, 
+        ctx: commands.Context, 
+        author: str,
+        extension: Optional[str] = None,
+        language: Optional[str] = None,
+        year: Optional[str] = None
+    ):
+        """Search for books by a specific author with optional filters
+        
+        This command searches Library Genesis for all publications by a specific
+        author. Results can be refined with optional filters for file type,
+        language, and year of publication. Each result includes comprehensive
+        metadata and download options when available.
+        """
+        if len(author) < 3:
+            await ctx.reply("Author name must be at least 3 characters long.")
+            return
+            
+        await ctx.defer()
+        
+        # Strip quotation marks if present
+        clean_author = author.strip('"\'')
+        
+        # Create filters dictionary if any filters are provided
+        filters = {}
+        if extension:
+            filters["Extension"] = extension
+        if language:
+            filters["Language"] = language
+        if year:
+            filters["Year"] = year
+            
+        try:
+            # Run the potentially slow network operation in a thread pool
+            if filters:
+                results = await self._run_in_executor(
+                    self._search_books_filtered, "author", clean_author, filters
+                )
+            else:
+                results = await self._run_in_executor(
+                    self._search_books, "author", clean_author
+                )
+                
+            await self._send_book_results(ctx, results, f"Author: {clean_author}")
+        except Exception as e:
+            await ctx.reply(f"An error occurred while searching for books: {str(e)}")
+    
+    @book.command(name="advanced", description="Advanced book search with multiple filters")
+    @app_commands.describe(
+        query="Search query (title or keywords, minimum 3 characters)",
+        search_type="Type of search to perform",
+        exact_match="Whether to require exact matches for filters",
+        extension="Filter by file extension (pdf, epub, mobi, etc)",
+        language="Filter by language",
+        year="Filter by publication year",
+        publisher="Filter by publisher name",
+        pages="Filter by page count (e.g. '100' or '100-200')"
+    )
+    async def book_advanced(
+        self, 
+        ctx: commands.Context, 
+        query: str,
+        search_type: Literal["title", "author", "default"],
+        exact_match: bool = True,
+        extension: Optional[str] = None,
+        language: Optional[str] = None,
+        year: Optional[str] = None,
+        publisher: Optional[str] = None,
+        pages: Optional[str] = None
+    ):
+        """Perform an advanced multi-filter book search
+        
+        This command provides the most comprehensive search capabilities,
+        allowing simultaneous filtering across multiple metadata fields.
+        Users can specify exact or partial matching, and combine filters
+        for precise results tailored to specific research or reading needs.
+        """
+        if len(query) < 3:
+            await ctx.reply("Search query must be at least 3 characters long.")
+            return
+            
+        await ctx.defer()
+        
+        clean_query = query.strip('"\'')
+        
+        filters = {}
+        if extension: filters["Extension"] = extension
+        if language: filters["Language"] = language
+        if year: filters["Year"] = year
+        if publisher: filters["Publisher"] = publisher
+        if pages: filters["Pages"] = pages
+            
+        try:
+            results = await self._run_in_executor(
+                self._search_books_filtered, 
+                search_type, 
+                clean_query, 
+                filters,
+                exact_match
+            )
+                
+            await self._send_book_results(ctx, results, f"Advanced search: {clean_query}")
+        except Exception as e:
+            await ctx.reply(f"An error occurred during advanced search: {str(e)}")
+    
+    @book.command(name="default", description="General search for books across all fields")
+    @app_commands.describe(
+        query="Search query (looks across titles, authors, etc.)",
+        extension="Filter by file extension (pdf, epub, mobi, etc)",
+        language="Filter by language"
+    )
+    async def book_default(
+        self, 
+        ctx: commands.Context, 
+        query: str,
+        extension: Optional[str] = None,
+        language: Optional[str] = None
+    ):
+        """Perform a general search across all book metadata fields
+        
+        This command uses LibGen's default search which checks across multiple
+        fields including title, author, ISBN, publisher and more. This provides
+        the broadest possible search for finding books without needing to know
+        exactly where the search term appears.
+        """
+        if len(query) < 3:
+            await ctx.reply("Search query must be at least 3 characters long.")
+            return
+            
+        await ctx.defer()
+        
+        clean_query = query.strip('"\'')
+        
+        filters = {}
+        if extension: filters["Extension"] = extension
+        if language: filters["Language"] = language
+            
+        try:
+            # Run the potentially slow network operation in a thread pool
+            if filters:
+                results = await self._run_in_executor(
+                    self._search_books_filtered, "default", clean_query, filters
+                )
+            else:
+                results = await self._run_in_executor(
+                    self._search_books, "default", clean_query
+                )
+                
+            await self._send_book_results(ctx, results, f"General search: {clean_query}")
+        except Exception as e:
+            await ctx.reply(f"An error occurred during search: {str(e)}")
+    
+    @commands.command(name="bookd", aliases=["libgen", "ebook"], description="Search for books on Library Genesis")
+    async def book_command(self, ctx: commands.Context, *, query: str = None):
+        """Search for books on Library Genesis
+        
+        This command searches Library Genesis for books matching the provided query.
+        If no query is provided, it shows usage instructions for the book search commands.
+        """
+        if query:
+            await self.book_default(ctx, query=query)
+        else:
+            await self.book(ctx)
+    
+    async def _run_in_executor(self, func, *args, **kwargs):
+        """Run a blocking function in a thread pool executor"""
+        return await self.bot.loop.run_in_executor(
+            self._executor, 
+            functools.partial(func, *args, **kwargs)
+        )
+    
+    def _search_books(self, search_type: str, query: str) -> List[Dict[str, Any]]:
+        """Search for books by title, author, or default"""
+        searcher = LibgenSearch()
+        try:
+            if search_type == "title":
+                return searcher.search_title(query)
+            elif search_type == "author":
+                return searcher.search_author(query)
+            else: 
+                return searcher.search_default(query)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error in _search_books: {e}")
+            return []
+        except Exception as e:
+            print(f"Error in _search_books: {e}")
+            return []
+    
+    def _search_books_filtered(
+        self, 
+        search_type: str, 
+        query: str, 
+        filters: Dict[str, str],
+        exact_match: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Search for books with filters by title or author"""
+        searcher = LibgenSearch()
+        try:
+            if search_type == "title":
+                return searcher.search_title_filtered(query, filters, exact_match)
+            elif search_type == "author":
+                return searcher.search_author_filtered(query, filters, exact_match)
+            else:
+                # Enhanced library doesn't have filtered default search, 
+                # so we'll get results and filter them manually
+                results = searcher.search_default(query)
+                return self._filter_results(results, filters, exact_match)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error in _search_books_filtered: {e}")
+            return []
+        except Exception as e:
+            print(f"Error in _search_books_filtered: {e}")
+            return []
+    
+    def _filter_results(
+        self, 
+        results: List[Dict[str, Any]], 
+        filters: Dict[str, str],
+        exact_match: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Filter results based on the provided filters"""
+        filtered_results = []
+        
+        for result in results:
+            matches_all_filters = True
+            
+            for filter_key, filter_value in filters.items():
+                result_value = result.get(filter_key, "")
+                
+                if exact_match:
+                    if result_value != filter_value:
+                        matches_all_filters = False
+                        break
+                else:
+                    if filter_value.lower() not in result_value.lower():
+                        matches_all_filters = False
+                        break
+                        
+            if matches_all_filters:
+                filtered_results.append(result)
+                
+        return filtered_results
+    
+    def _find_similar_titles(self, query: str) -> List[str]:
+        """Find similar book titles that might match a misspelled query"""
+        return []
+    
 
+    async def _send_book_results(self, ctx: commands.Context, results: List[Dict[str, Any]], query_info: str):
+        """Format and send book search results"""
+        if not results:
+            await ctx.reply(f"No books found for '{query_info}'.")
+            return
+            
+        results = results[:25]
+        embeds = []
+        
+        for idx, book in enumerate(results, 1):
+            embed = discord.Embed(
+                title=f"{book.get('Title', 'Unknown Title')}",
+                description=f"**By** {book.get('Author', 'Unknown')}\n**Published by** {book.get('Publisher', 'Unknown')}",
+                color=discord.Color.dark_blue()
+            )
+            
+            cover_url = book.get('Cover')
+            if cover_url: embed.set_image(url=cover_url)
+            
+            metadata = {
+                "Year": book.get("Year", "Unknown"),
+                "Language": book.get("Language", "Unknown"),
+                "Pages": book.get("Pages", "Unknown"),
+                "Size": book.get("Size", "Unknown"),
+                "Format": book.get("Extension", "Unknown"),
+                "ID": book.get("ID", "Unknown")
+            }
+            embed.description += f"\n\n{metadata["Year"]} | {metadata["Language"]} | {metadata["Pages"]} pages | {metadata["Size"]} | {metadata["Format"]}"
+            
+            download_links = ""
+            
+            direct_link = book.get("Direct_Download_Link")
+            if direct_link:
+                download_links += f"[__↓ Direct Download__]({direct_link})\n"
+                        
+            mirror_links = []
+            for i in range(1, 6):
+                mirror_key = f"Mirror_{i}"
+                if mirror_key in book and book[mirror_key]:
+                    mirror_links.append(f"[Mirror {i}]({book[mirror_key]})")
+            
+            if mirror_links:
+                download_links += " | ".join(mirror_links)
+            
+            if download_links:
+                embed.description += f"\n\n{download_links}"
+            
+            embed.set_footer(text=f"Result {idx}/{len(results)} for search: {query_info}")
+            embeds.append(embed)
+    
+        paginator = PaginationView(embeds, ctx.author)
+        await ctx.reply(embed=embeds[0], view=paginator)
 
 async def setup(bot):
     await bot.add_cog(Misc(bot))

@@ -1,9 +1,9 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
-from typing import Optional
 import utils
+import discord
 from bot import Morgana
+from typing import Optional
+from discord import app_commands
+from discord.ext import commands
 
 class Alias(commands.Cog):
     def __init__(self, bot: Morgana):

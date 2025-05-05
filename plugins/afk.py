@@ -1,11 +1,11 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
-from utils import format_seconds
-from datetime import datetime
 import time
-from typing import Optional
+import discord
 from bot import Morgana
+from typing import Optional
+from datetime import datetime
+from utils import format_seconds
+from discord import app_commands
+from discord.ext import commands
 
 class Afk(commands.Cog):
     def __init__(self, bot: Morgana):
