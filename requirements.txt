@@ -7,3 +7,4 @@ python-dateutil>=2.8.2
 aiohttp>=3.8.5
 psutil
 pytz
+libgen-api-enhanced
