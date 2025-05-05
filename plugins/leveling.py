@@ -2,6 +2,7 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 import random
+from utils import PaginationView
 import os
 import time
 from typing import Optional, Dict, List
@@ -91,7 +92,7 @@ class ranking(commands.Cog):
                 if reward_role:
                     try:
                         await message.author.add_roles(reward_role)
-                        await message.author.send(f"You've earned the {reward_role.mention} role! for reaching level {new_level} in {message.guild.name}")
+                        await message.author.send(f"You've earned the **{reward_role.name}** role for reaching level {new_level} in {message.guild.name}!")
                     except discord.HTTPException:
                         pass
             
@@ -172,114 +173,50 @@ class ranking(commands.Cog):
         """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
-
+            
+            
     @ranking.command(
         name="leaderboard",
         description="View the server's top ranked members"
     )
-    @app_commands.describe(
-        sort_by="Sort by XP or Level",
-        page="Page number to view",
-        per_page="Number of entries per page",
-        role="Filter by specific role",
-        reverse="Show from bottom instead of top"
-    )
-    async def leaderboard(
-        self, 
-        ctx: commands.Context,
-        sort_by: Optional[str] = "xp",
-        page: int = 1,
-        per_page: int = 10,
-        role: Optional[discord.Role] = None,
-        reverse: bool = False
-    ) -> None:
-        """
-        Display the server's ranking leaderboard showing top members.
-        Parameters:
-        - sort_by: Sort by 'xp' or 'level'
-        - page: Page number to view
-        - per_page: Entries per page (max 20)
-        - role: Filter by role
-        - reverse: Show from bottom instead of top
-        """
-        if per_page > 20:
-            per_page = 20
-        
-        if page < 1:
-            page = 1
-            
-        if sort_by not in ['xp', 'level']:
-            sort_by = 'xp'
-
+    async def leaderboard(self, ctx: commands.Context) -> None:
+        """Display the server's ranking leaderboard showing top members."""
         # Get raw leaderboard data
         leaderboard_data = self.bot.db.get_guild_leaderboard(ctx.guild.id)
         
-        # Filter and sort data
-        filtered_data = []
+        # Filter and process data
+        processed_data = []
         for user_id, xp, level in leaderboard_data:
             member = ctx.guild.get_member(user_id)
             if member:
-                if role and role not in member.roles:
-                    continue
-                filtered_data.append((member, xp, level))
+                processed_data.append((member, xp, level))
 
-        # Sort data
-        filtered_data.sort(
-            key=lambda x: x[2] if sort_by == 'level' else x[1], 
-            reverse=not reverse
-        )
+        # Sort by XP descending
+        processed_data.sort(key=lambda x: x[1], reverse=True)
 
-        # Calculate pages
-        total_pages = max(1, math.ceil(len(filtered_data) / per_page))
-        if page > total_pages:
-            page = total_pages
-
-        # Slice data for current page
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        page_data = filtered_data[start_idx:end_idx]
-
-        embed = discord.Embed(
-            title="Rank Leaderboard",
-            color=discord.Color.dark_gray()
-        )
-
-        # Add filters to title
-        filters = []
-        if role:
-            filters.append(f"Role: {role.name}")
-        if reverse:
-            filters.append("Reversed")
-        if filters:
-            embed.title += f" ({', '.join(filters)})"
-
-        # Add statistics
-        embed.add_field(
-            name="Stats",
-            value=f"Total Members: {len(filtered_data)}\n"
-                  f"Showing: {sort_by.upper()}\n"
-                  f"Page: {page}/{total_pages}",
-            inline=False
-        )
-
-        # Format leaderboard entries
-        description = []
-        for i, (member, xp, level) in enumerate(page_data, start=start_idx + 1):
-            medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, "")
-            description.append(
-                f"{medal}`#{i:>2}` {member.mention}\n"
-                f"⠀⠀Level: {level} | XP: `{xp:,}`"
+        embeds = []
+        chunks = [processed_data[i:i + 10] for i in range(0, len(processed_data), 10)]
+        
+        for chunk in chunks:
+            embed = discord.Embed(
+                title="Rank Leaderboard",
+                color=discord.Color.dark_gray()
             )
+            
+            description = []
+            for i, (member, xp, level) in enumerate(chunk, start=chunks.index(chunk) * 10 + 1):
+                medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, "")
+                description.append(
+                    f"{medal}`#{i:>2}` {member.mention} Lvl {level} | `{xp:,} xp`"
+                )
 
-        if description:
             embed.description = "\n".join(description)
-        else:
-            embed.description = "No data available!"
+            embeds.append(embed)
 
-        # Add navigation hint
-        embed.set_footer(text=f"Use /leaderboard page:{page+1} to see next page")
-
-        await ctx.reply(embed=embed)
+        if not embeds: await ctx.reply("No data available!"); return
+        
+        view = PaginationView(embeds, ctx.author)
+        view.message = await ctx.reply(embed=embeds[0], view=view)
 
     @ranking.command(
         name="reset",

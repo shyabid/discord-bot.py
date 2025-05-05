@@ -1,13 +1,19 @@
 import discord
 from discord.ext import commands
 from bot import Morgana
-
+from discord import app_commands
 class Bookmark(commands.Cog):
     """Message bookmark system for personal reference"""
     
     def __init__(self, bot: Morgana):
         self.bot = bot
 
+    async def bookmark_message(self, interaction: discord.Interaction, message: discord.Message):
+        """Context menu command to bookmark a message"""
+        embed = self._create_bookmark_embed(message)
+        await self._send_bookmark(interaction.user, message, embed)
+        await interaction.response.send_message("Message bookmarked!", ephemeral=True)
+    
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """Monitor for bookmark reactions and process messages"""
@@ -35,7 +41,6 @@ class Bookmark(commands.Cog):
     def _create_bookmark_embed(self, message: discord.Message) -> discord.Embed:
         """Format bookmarked message into an organized embed"""
         embed = discord.Embed(
-            title="Message Bookmarked",
             description=f"> {message.content[:1021]}..." if len(message.content) > 1024 else f"> {message.content}",
             color=discord.Color(0x99b3ff),  # Hex color code #99b3ff
             timestamp=message.created_at
@@ -46,12 +51,12 @@ class Bookmark(commands.Cog):
         bot_avatar_url = self.bot.user.avatar.url if self.bot.user.avatar else self.bot.user.default_avatar.url
 
         embed.set_footer(
-            text=f"Morgana $ {bot_ping}ms",
+            text=f"{self.bot.user.display_name} $ {bot_ping}ms",
             icon_url=bot_avatar_url
         )
 
         embed.set_author(
-            name="Info",
+            name="Message Bookmark",
             icon_url="https://i.imgur.com/8GRtR2G.png"
         )
 
@@ -75,4 +80,11 @@ class Bookmark(commands.Cog):
             await notify_message.delete(delay=30)
 
 async def setup(bot: Morgana):
+    cog = Bookmark(bot)
     await bot.add_cog(Bookmark(bot))
+    bot.tree.add_command(
+        app_commands.ContextMenu(
+            name='Bookmark Message',
+            callback=cog.bookmark_message
+        )
+    )
