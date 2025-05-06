@@ -39,11 +39,24 @@ class Tags(commands.Cog):
         
         if len(content) > 2000:
             return await ctx.reply("Tag content is too long (maximum 2000 characters)")
-            
+
+        can_bypass = ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator
+        
+        # Updated to use the new check_automod_violation that returns [bool, message]
+        violation_check = await self.check_automod_violation(ctx.guild.id, content)
+        has_banned_words = violation_check[0]
+        violation_message = violation_check[1]
+        
+        if has_banned_words and not can_bypass:
+            return await ctx.reply(f"Your tag contains content that violates this server's automod rules. Tag creation canceled. {violation_message}")
+        
         success = self.bot.db.create_tag(ctx.guild.id, name, content, ctx.author.id)
         
         if success:
-            await ctx.reply(f"Tag `{name}` created successfully.")
+            if has_banned_words and can_bypass:
+                await ctx.reply(f"Tag `{name}` created successfully, but be aware it contains content that would normally trigger automod filters. {violation_message}")
+            else:
+                await ctx.reply(f"Tag `{name}` created successfully.")
         else:
             await ctx.reply(f"A tag with the name `{name}` already exists.")
 
@@ -62,12 +75,66 @@ class Tags(commands.Cog):
         if not original_tag:
             return await ctx.reply(f"Tag `{old_name}` not found.")
         
+        # Check if user can bypass automod
+        can_bypass = ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator
+        
+        # Updated to use the new check_automod_violation that returns [bool, message]
+        violation_check = await self.check_automod_violation(ctx.guild.id, new_name)
+        has_banned_words = violation_check[0]
+        violation_message = violation_check[1]
+        
+        if has_banned_words and not can_bypass:
+            return await ctx.reply(f"Your tag alias contains content that violates this server's automod rules. Alias creation canceled. {violation_message}")
+        
         # Create the alias
         success = self.bot.db.create_tag_alias(ctx.guild.id, new_name, old_name)
         if success:
-            await ctx.reply(f"Created alias `{new_name}` pointing to `{old_name}`.")
+            if has_banned_words and can_bypass:
+                await ctx.reply(f"Created alias `{new_name}` pointing to `{old_name}`, but be aware it contains content that would normally trigger automod filters. {violation_message}")
+            else:
+                await ctx.reply(f"Created alias `{new_name}` pointing to `{old_name}`.")
         else:
             await ctx.reply(f"An alias or tag with the name `{new_name}` already exists.")
+
+    # Add a helper method to check for automod violations
+    async def check_automod_violation(self, guild_id, content):
+        """
+        Checks if the content would violate the server's automod rules.
+        
+        Returns True if violations are found, False otherwise.
+        """
+        guild = self.bot.get_guild(guild_id)
+        
+        try:
+            rules: list[discord.AutoModRule] = await guild.fetch_automod_rules()
+            
+            found_words = []
+            for rule in rules:
+                if hasattr(rule.trigger, 'keyword_filter'):
+                    censored: List[str] = rule.trigger.keyword_filter
+                    for word in censored:
+                        if word.lower() in content.lower():
+                            found_words.append(word)
+            
+            if found_words:
+                censored_display = []
+                for word in found_words[:3]:
+                    if len(word) <= 2:
+                        masked = word
+                    else:
+                        masked = f"{word[0]}{'*' * (len(word)-2)}{word[-1]}"
+                    censored_display.append(masked)
+                
+                if len(found_words) > 3:
+                    censored_display.append("etc...")
+                
+                return [True, f"Your content has {len(found_words)} censored words, like {', '.join(censored_display)}"]
+            
+            return [False, ""]
+        except Exception as e:
+            # Log the error but allow the tag to be created
+            print(f"Error in automod check: {e}")
+            return [False, ""]
 
     @tag.command(name="all", description="List all tags in the server")
     @app_commands.describe(text="Whether to show tag names (yes) or just count (no)")
