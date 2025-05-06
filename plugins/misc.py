@@ -14,6 +14,7 @@ from utils import PaginationView
 import random
 import requests
 import json
+import unicodedata
 import os
 from libgen_api_enhanced import LibgenSearch
 import functools
@@ -390,7 +391,6 @@ class Misc(commands.Cog):
         if year: filters["Year"] = year
             
         try:
-            # Run the potentially slow network operation in a thread pool
             if filters:
                 results = await self._run_in_executor(
                     self._search_books_filtered, "title", clean_query, filters
@@ -407,14 +407,10 @@ class Misc(commands.Cog):
                 
                 # Try up to 2 alternative spellings
                 for alt_query in alternative_queries[:2]:
-                    if filters:
-                        alt_results = await self._run_in_executor(
-                            self._search_books_filtered, "title", alt_query, filters
-                        )
-                    else:
-                        alt_results = await self._run_in_executor(
-                            self._search_books, "title", alt_query
-                        )
+                    
+                    alt_results = await self._run_in_executor(
+                        self._search_books, "title", alt_query
+                    )
                     
                     if alt_results:
                         alternative_results.append((alt_query, alt_results))
@@ -423,11 +419,7 @@ class Misc(commands.Cog):
                     # Use the first successful alternative
                     alt_query, results = alternative_results[0]
                     await ctx.send(f"No books found for '{clean_query}'. Showing results for '{alt_query}' instead.")
-                else:
-                    suggestions = ", ".join([f"`{s}`" for s in alternative_queries[:5]]) if alternative_queries else "none found"
-                    await ctx.reply(f"No books found for '{clean_query}'. Did you mean: {suggestions}?\n\nTip: Try using broader search terms or check spelling.")
-                    return
-            
+                
             await self._send_book_results(ctx, results, clean_query)
         except Exception as e:
             await ctx.reply(f"An error occurred while searching for books: {str(e)}")
@@ -459,18 +451,12 @@ class Misc(commands.Cog):
             return
             
         await ctx.defer()
-        
-        # Strip quotation marks if present
         clean_author = author.strip('"\'')
         
-        # Create filters dictionary if any filters are provided
         filters = {}
-        if extension:
-            filters["Extension"] = extension
-        if language:
-            filters["Language"] = language
-        if year:
-            filters["Year"] = year
+        if extension: filters["Extension"] = extension
+        if language: filters["Language"] = language
+        if year: filters["Year"] = year
             
         try:
             # Run the potentially slow network operation in a thread pool
@@ -577,33 +563,17 @@ class Misc(commands.Cog):
         if extension: filters["Extension"] = extension
         if language: filters["Language"] = language
             
-        try:
-            # Run the potentially slow network operation in a thread pool
-            if filters:
-                results = await self._run_in_executor(
-                    self._search_books_filtered, "default", clean_query, filters
-                )
-            else:
-                results = await self._run_in_executor(
-                    self._search_books, "default", clean_query
-                )
-                
-            await self._send_book_results(ctx, results, f"General search: {clean_query}")
-        except Exception as e:
-            await ctx.reply(f"An error occurred during search: {str(e)}")
-    
-    @commands.command(name="bookd", aliases=["libgen", "ebook"], description="Search for books on Library Genesis")
-    async def book_command(self, ctx: commands.Context, *, query: str = None):
-        """Search for books on Library Genesis
-        
-        This command searches Library Genesis for books matching the provided query.
-        If no query is provided, it shows usage instructions for the book search commands.
-        """
-        if query:
-            await self.book_default(ctx, query=query)
+        if filters:
+            results = await self._run_in_executor(
+                self._search_books_filtered, "default", clean_query, filters
+            )
         else:
-            await self.book(ctx)
-    
+            results = await self._run_in_executor(
+                self._search_books, "default", clean_query
+            )
+            
+        await self._send_book_results(ctx, results, f"General search: {clean_query}")
+
     async def _run_in_executor(self, func, *args, **kwargs):
         """Run a blocking function in a thread pool executor"""
         return await self.bot.loop.run_in_executor(
@@ -622,10 +592,12 @@ class Misc(commands.Cog):
             else: 
                 return searcher.search_default(query)
         except json.JSONDecodeError as e:
-            print(f"JSON decode error in _search_books: {e}")
+            print(f"JSON decode error in _search_books: {str(e)}")
+            print(f"Query was: {query}, search_type: {search_type}")
+            # Return empty list on JSON error
             return []
         except Exception as e:
-            print(f"Error in _search_books: {e}")
+            print(f"Error in _search_books: {str(e)}")
             return []
     
     def _search_books_filtered(
@@ -638,20 +610,32 @@ class Misc(commands.Cog):
         """Search for books with filters by title or author"""
         searcher = LibgenSearch()
         try:
+            # Make a copy of filters and replace "extension" with the parameter
+            # that LibgenSearch actually accepts (likely "Extension")
+            clean_filters = {}
+            for key, value in filters.items():
+                if key.lower() == "extension":
+                    clean_filters["Extension"] = value
+                else:
+                    clean_filters[key] = value
+            
             if search_type == "title":
-                return searcher.search_title_filtered(query, filters, exact_match)
+                return searcher.search_title_filtered(query, clean_filters, exact_match)
             elif search_type == "author":
-                return searcher.search_author_filtered(query, filters, exact_match)
+                return searcher.search_author_filtered(query, clean_filters, exact_match)
             else:
                 # Enhanced library doesn't have filtered default search, 
                 # so we'll get results and filter them manually
                 results = searcher.search_default(query)
-                return self._filter_results(results, filters, exact_match)
+                return self._filter_results(results, clean_filters, exact_match)
         except json.JSONDecodeError as e:
-            print(f"JSON decode error in _search_books_filtered: {e}")
+            print(f"JSON decode error in _search_books_filtered: {str(e)}")
+            print(f"Query was: {query}, search_type: {search_type}")
+            print(f"Filters: {filters}")
+            # Return empty list on JSON error
             return []
         except Exception as e:
-            print(f"Error in _search_books_filtered: {e}")
+            print(f"Error in _search_books_filtered: {str(e)}")
             return []
     
     def _filter_results(
@@ -715,7 +699,7 @@ class Misc(commands.Cog):
                 "Format": book.get("Extension", "Unknown"),
                 "ID": book.get("ID", "Unknown")
             }
-            embed.description += f"\n\n{metadata["Year"]} | {metadata["Language"]} | {metadata["Pages"]} pages | {metadata["Size"]} | {metadata["Format"]}"
+            embed.description += f'\n\n{metadata["Year"]} | {metadata["Language"]} | {metadata["Pages"]} pages | {metadata["Size"]} | {metadata["Format"]}'
             
             download_links = ""
             
@@ -740,6 +724,38 @@ class Misc(commands.Cog):
     
         paginator = PaginationView(embeds, ctx.author)
         await ctx.reply(embed=embeds[0], view=paginator)
+
+
+    @misc.command(name="charinfo", description="Get information about Unicode characters")
+    @app_commands.describe(characters="Characters to get information about")
+    async def charinfo(self, ctx: commands.Context, *, characters: str):
+        """Display detailed Unicode character information
+        
+        This command analyzes the provided characters and returns detailed Unicode
+        information for each character including its code point, official name,
+        and the Python escape sequence needed to represent it.
+        """
+        def to_string(c):
+            digit = f'{ord(c):x}'
+            name = unicodedata.name(c, 'Name not found.')
+            fileformat_link = f"https://www.fileformat.info/info/unicode/char/{digit}/index.htm"
+            return f'[`\\U{digit:>08}`](<{fileformat_link}>) {name} {c}'
+
+        msg = '\n'.join(map(to_string, characters))
+        if msg.strip():
+            await ctx.reply(msg)
+        else: await ctx.reply('No characters provided.')
+
+    @commands.command(name="charinfo", description="Get information about Unicode characters")
+    async def charinfo_command(self, ctx: commands.Context, *, characters: str):
+        """Display detailed Unicode character information
+        
+        This command analyzes the provided characters and returns detailed Unicode
+        information for each character including its code point, official name,
+        and the Python escape sequence needed to represent it.
+        """
+        await self.charinfo(ctx, characters=characters)
+
 
 async def setup(bot):
     await bot.add_cog(Misc(bot))
