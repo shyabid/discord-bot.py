@@ -29,26 +29,30 @@ class DBManager:
                     current_statement = []
                     in_trigger = False
                     
-                    for line in schema.split('\n'):
-                        line = line.strip()
-                        if not line or line.startswith('--'):
-                            continue
-                            
-                        if 'CREATE TRIGGER' in line:
+                    for line in schema.split('\n'): 
+                        stripped_line = line.strip()
+                        
+                        if not in_trigger and "CREATE TRIGGER" in stripped_line:
                             in_trigger = True
-                            
-                        if in_trigger:
                             current_statement.append(line)
-                            if line == 'END;':
-                                statements.append('\n'.join(current_statement))
-                                current_statement = []
-                                in_trigger = False
+                            
+                        elif in_trigger and stripped_line.startswith("END"):
+                            in_trigger = False
+                            current_statement.append(line)
+                            statements.append('\n'.join(current_statement))
+                            current_statement = []
+                        
+                        elif not in_trigger and stripped_line.endswith(';'):
+                            current_statement.append(line)
+                            statements.append('\n'.join(current_statement))
+                            current_statement = []
+                        
                         else:
                             current_statement.append(line)
-                            if line.endswith(';'):
-                                statements.append('\n'.join(current_statement))
-                                current_statement = []
-                                
+                    
+                    if current_statement:
+                        statements.append('\n'.join(current_statement))
+                    
                     for statement in statements:
                         if statement.strip():
                             self.execute(statement.strip())
@@ -57,36 +61,9 @@ class DBManager:
                 self.commit()
                 print("Base schema applied successfully")
                 
-            # Then apply all migrations in order
-            migrations_dir = "migrations"
-            if not os.path.exists(migrations_dir):
-                os.makedirs(migrations_dir)
-                print(f"Created migrations directory: {migrations_dir}")
-            
-            applied = set(self._get_applied_migrations())
-            migration_files = sorted([f for f in os.listdir(migrations_dir) if f.endswith('.sql')])
-            
-            for filename in migration_files:
-                migration_name = filename[:-4]  # Remove .sql extension
-                if migration_name in applied:
-                    continue
-                    
-                print(f"Applying migration: {migration_name}")
-                try:
-                    filepath = os.path.join(migrations_dir, filename)
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        migration_sql = f.read()
-                        for statement in migration_sql.split(';'):
-                            if statement.strip():
-                                self.execute(statement.strip())
-                    
-                    self.execute("INSERT INTO migrations (name) VALUES (?)", (migration_name,))
-                    self.commit()
-                    print(f"Successfully applied migration: {migration_name}")
-                except Exception as e:
-                    print(f"Failed to apply migration {filename}: {e}")
-                    raise
-                    
+            # Apply all pending migrations
+            self._apply_migrations()
+                
         except Exception as e:
             print(f"Error during database initialization: {e}")
             raise
@@ -124,7 +101,35 @@ class DBManager:
             try:
                 with open(os.path.join(migrations_dir, filename), 'r', encoding='utf-8') as f:
                     migration_sql = f.read()
-                    for statement in migration_sql.split(';'):
+                    statements = []
+                    current_statement = []
+                    in_trigger = False
+                    
+                    for line in migration_sql.split('\n'):
+                        stripped_line = line.strip()
+                        
+                        if not in_trigger and "CREATE TRIGGER" in stripped_line:
+                            in_trigger = True
+                            current_statement.append(line)
+                        
+                        elif in_trigger and stripped_line.startswith("END"):
+                            in_trigger = False
+                            current_statement.append(line)
+                            statements.append('\n'.join(current_statement))
+                            current_statement = []
+                        
+                        elif not in_trigger and stripped_line.endswith(';'):
+                            current_statement.append(line)
+                            statements.append('\n'.join(current_statement))
+                            current_statement = []
+                        
+                        else:
+                            current_statement.append(line)
+                    
+                    if current_statement:
+                        statements.append('\n'.join(current_statement))
+                    
+                    for statement in statements:
                         if statement.strip():
                             try:
                                 self.execute(statement)
@@ -177,6 +182,32 @@ class DBManager:
     def commit(self) -> None: self.connection.commit()
     def close(self) -> None: self.connection.close()
     
+    def ensure_user_exists(self, user_id):
+        """
+        Make sure the user exists in the users table before recording related data.
+        This helps prevent foreign key constraint failures.
+        """
+        # Check if user exists
+        self._cursor.execute("SELECT COUNT(*) FROM users WHERE user_id = ?", (user_id,))
+        user_exists = self._cursor.fetchone()[0] > 0
+        
+        if not user_exists:
+            # If user doesn't exist, insert a basic record for them
+            self.execute("""
+                INSERT OR IGNORE INTO users (user_id, created_at) 
+                VALUES (?, CURRENT_TIMESTAMP)
+            """, (user_id,))
+            
+            # Also make sure they have tracking enabled record
+            self.execute("""
+                INSERT OR IGNORE INTO activity_tracking (user_id, is_enabled, tracking_since)
+                VALUES (?, 1, CURRENT_TIMESTAMP)
+            """, (user_id,))
+            
+            self._conn.commit()
+        
+        return True
+
     def count_up_command(self, command_name: str) -> None:
         self.execute("INSERT OR IGNORE INTO command_statistics (command_name) VALUES (?)", (command_name,))
         self.execute("UPDATE command_statistics SET usage_count = usage_count + 1 WHERE command_name = ?", (command_name,))
@@ -1291,3 +1322,154 @@ class DBManager:
         params.append(limit)
         
         return self.execute_query(query, tuple(params), fetch_all=True)
+    def create_tag(self, guild_id: int, name: str, content: str, owner_id: int) -> bool:
+        """Creates a new tag."""
+        try:
+            self.execute_and_commit("INSERT INTO tags (guild_id, name, content, owner_id) VALUES (?, ?, ?, ?)", (guild_id, name.lower(), content, owner_id))
+            return True
+        except sqlite3.IntegrityError: return False
+            
+    def get_tag(self, guild_id: int, name: str) -> Optional[Dict[str, Any]]:
+        """Gets a tag by name."""
+        # First try to get it directly
+        result = self.execute_query("SELECT * FROM tags WHERE guild_id = ? AND name = ?", (guild_id, name.lower()), fetch_one=True)
+        
+        if result:
+            self.execute_and_commit("UPDATE tags SET use_count = use_count + 1 WHERE tag_id = ?", (result["tag_id"],))
+            return result
+            
+        result = self.execute_query(
+            """SELECT t.* FROM tags t
+               JOIN tag_aliases ta ON t.guild_id = ta.guild_id AND t.name = ta.original_tag_name
+               WHERE ta.guild_id = ? AND ta.alias_name = ?""",
+            (guild_id, name.lower()), fetch_one=True
+        )
+        
+        if result:
+            self.execute_and_commit("UPDATE tags SET use_count = use_count + 1 WHERE tag_id = ?", (result["tag_id"],))
+        return result
+            
+    def get_tag_by_id(self, tag_id: int) -> Optional[Dict[str, Any]]:
+        """Gets a tag by ID."""
+        return self.execute_query("SELECT * FROM tags WHERE tag_id = ?", (tag_id,), fetch_one=True
+        )
+            
+    def edit_tag(self, guild_id: int, name: str, content: str, owner_id: int) -> bool:
+        """Edits a tag's content."""
+        self.execute_and_commit("UPDATE tags SET content = ? WHERE guild_id = ? AND name = ? AND owner_id = ?", (content, guild_id, name.lower(), owner_id))
+        return self._cursor.rowcount > 0
+        
+    def delete_tag(self, guild_id: int, name: str, owner_id: int) -> bool:
+        """Deletes a tag."""
+        self.execute_and_commit("DELETE FROM tags WHERE guild_id = ? AND name = ? AND owner_id = ?", (guild_id, name.lower(), owner_id))
+        return self._cursor.rowcount > 0
+        
+    def delete_tag_by_id(self, tag_id: int) -> bool:
+        """Deletes a tag by ID."""
+        self.execute_and_commit("DELETE FROM tags WHERE tag_id = ?", (tag_id,))
+        return self._cursor.rowcount > 0
+        
+    def transfer_tag(self, guild_id: int, name: str, old_owner_id: int, new_owner_id: int) -> bool:
+        """Transfers a tag to a new owner."""
+        self.execute_and_commit("UPDATE tags SET owner_id = ? WHERE guild_id = ? AND name = ? AND owner_id = ?", (new_owner_id, guild_id, name.lower(), old_owner_id))
+        return self._cursor.rowcount > 0
+        
+    def claim_tag(self, guild_id: int, name: str, new_owner_id: int, old_owner_id: int) -> bool:
+        """Claims a tag if the previous owner is no longer in the server."""
+        self.execute_and_commit("UPDATE tags SET owner_id = ? WHERE guild_id = ? AND name = ? AND owner_id = ?", (new_owner_id, guild_id, name.lower(), old_owner_id))
+        return self._cursor.rowcount > 0
+        
+    def create_tag_alias(self, guild_id: int, alias_name: str, original_name: str) -> bool:
+        """Creates an alias for an existing tag."""
+        try:
+            original_tag = self.get_tag(guild_id, original_name)
+            if not original_tag: return False
+                
+            self.execute_and_commit("INSERT INTO tag_aliases (guild_id, alias_name, original_tag_name) VALUES (?, ?, ?)", (guild_id, alias_name.lower(), original_name.lower()))
+            return True
+        except sqlite3.IntegrityError: return False
+            
+    def get_all_guild_tags(self, guild_id: int) -> List[Dict[str, Any]]:
+        """Gets all tags in a guild."""
+        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? ORDER BY name", (guild_id,), fetch_all=True)
+        
+    def get_user_tags(self, guild_id: int, owner_id: int) -> List[Dict[str, Any]]:
+        """Gets all tags owned by a user in a guild."""
+        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? AND owner_id = ? ORDER BY name", (guild_id, owner_id), fetch_all=True
+        )
+        
+    def get_random_tag(self, guild_id: int) -> Optional[Dict[str, Any]]:
+        """Gets a random tag from a guild."""
+        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? ORDER BY RANDOM() LIMIT 1", (guild_id,), fetch_one=True
+        )
+        
+    def search_tags(self, guild_id: int, query: str) -> List[Dict[str, Any]]:
+        """Searches for tags in a guild."""
+        search_term = f"%{query.lower()}%"
+        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? AND name LIKE ? ORDER BY name LIMIT 100", (guild_id, search_term), fetch_all=True)
+        
+    def get_tag_info(self, guild_id: int, name: str) -> Optional[Dict[str, Any]]:
+        """Gets detailed information about a tag."""
+        tag = self.get_tag(guild_id, name)
+        if not tag: return None
+        aliases = self.execute_query("SELECT alias_name FROM tag_aliases WHERE guild_id = ? AND original_tag_name = ?", (guild_id, tag["name"]), fetch_all=True)
+        tag["aliases"] = [alias["alias_name"] for alias in aliases]
+        return tag
+        
+    def get_guild_tag_stats(self, guild_id: int) -> Dict[str, Any]:
+        """Gets tag statistics for a guild."""
+        stats = {}
+        
+        total_query = "SELECT COUNT(*) as count FROM tags WHERE guild_id = ?"
+        result = self.execute_query(total_query, (guild_id,), fetch_one=True)
+        stats["total_tags"] = result["count"] if result else 0
+        
+        aliases_query = "SELECT COUNT(*) as count FROM tag_aliases WHERE guild_id = ?"
+        result = self.execute_query(aliases_query, (guild_id,), fetch_one=True)
+        stats["total_aliases"] = result["count"] if result else 0
+        
+        top_tags_query = """
+            SELECT name, use_count, owner_id 
+            FROM tags 
+            WHERE guild_id = ? 
+            ORDER BY use_count DESC LIMIT 5
+        """
+        stats["top_tags"] = self.execute_query(top_tags_query, (guild_id,), fetch_all=True)
+        
+        top_creators_query = """
+            SELECT owner_id, COUNT(*) as tag_count 
+            FROM tags 
+            WHERE guild_id = ? 
+            GROUP BY owner_id 
+            ORDER BY tag_count DESC LIMIT 5
+        """
+        stats["top_creators"] = self.execute_query(top_creators_query, (guild_id,), fetch_all=True)
+        
+        return stats
+        
+    def get_user_tag_stats(self, guild_id: int, user_id: int) -> Dict[str, Any]:
+        """Gets tag statistics for a user in a guild."""
+        stats = {}
+        
+        total_query = "SELECT COUNT(*) as count FROM tags WHERE guild_id = ? AND owner_id = ?"
+        result = self.execute_query(total_query, (guild_id, user_id), fetch_one=True)
+        stats["total_tags"] = result["count"] if result else 0
+        
+        top_tags_query = """
+            SELECT name, use_count
+            FROM tags 
+            WHERE guild_id = ? AND owner_id = ?
+            ORDER BY use_count DESC LIMIT 5
+        """
+        stats["top_tags"] = self.execute_query(top_tags_query, (guild_id, user_id), fetch_all=True)
+        
+        total_uses_query = """
+            SELECT SUM(use_count) as total_uses
+            FROM tags 
+            WHERE guild_id = ? AND owner_id = ?
+        """
+        result = self.execute_query(total_uses_query, (guild_id, user_id), fetch_one=True)
+        stats["total_uses"] = result["total_uses"] if result and result["total_uses"] else 0
+        
+        return stats
+    

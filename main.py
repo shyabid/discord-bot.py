@@ -28,7 +28,8 @@ plguins = [
     "plugins.help",
 #     "plugins.audio",
     "plugins.holy",
-    "plugins.bookmark"
+    "plugins.bookmark",
+    "plugins.tags"
 ]
 
 bot = Morgana(plguins=plguins)
