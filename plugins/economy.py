@@ -799,7 +799,7 @@ class Economy(commands.Cog):
         # Generate random reward between $2 and $5
         reward = round(random.uniform(2, 5), 2)
 
-        # Update user's balance and claim time
+        # Update users balance and claim time
         self.bot.db.update_user_balance(ctx.author.id, reward)
         self.bot.db.update_daily_claim(ctx.author.id)
 

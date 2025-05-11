@@ -476,7 +476,7 @@ class Mod(commands.Cog):
 
         await log_channel.send(embed=timeout_log_embed)
         await ctx.reply(f"{member} has been timed out for {formatted_duration}.")
-        print("the timeout log shit works, where it says 'has been time out for'") # remove
+
 
         # Add case to database with duration
         self.bot.db.add_mod_case(
