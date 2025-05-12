@@ -1322,12 +1322,20 @@ class DBManager:
         params.append(limit)
         
         return self.execute_query(query, tuple(params), fetch_all=True)
+    
     def create_tag(self, guild_id: int, name: str, content: str, owner_id: int) -> bool:
         """Creates a new tag."""
         try:
+            # Check if name exists as an alias
+            alias_check = self.execute_query(
+                "SELECT alias_name FROM tag_aliases WHERE guild_id = ? AND alias_name = ?", (guild_id, name.lower()), fetch_one=True
+            )
+            if alias_check: return False
+            
             self.execute_and_commit("INSERT INTO tags (guild_id, name, content, owner_id) VALUES (?, ?, ?, ?)", (guild_id, name.lower(), content, owner_id))
             return True
-        except sqlite3.IntegrityError: return False
+        except sqlite3.IntegrityError:
+            return False
             
     def get_tag(self, guild_id: int, name: str) -> Optional[Dict[str, Any]]:
         """Gets a tag by name."""
@@ -1388,10 +1396,33 @@ class DBManager:
             self.execute_and_commit("INSERT INTO tag_aliases (guild_id, alias_name, original_tag_name) VALUES (?, ?, ?)", (guild_id, alias_name.lower(), original_name.lower()))
             return True
         except sqlite3.IntegrityError: return False
-            
+        
+    def get_guild_tag_stats(self, guild_id: int) -> Dict[str, Any]:
+        query = """
+            SELECT 
+                COUNT(*) as total_tags,
+                COALESCE(SUM(use_count), 0) as total_usage
+            FROM tags 
+            WHERE guild_id = ?
+        """
+        result = self.execute_query(query, (guild_id,), fetch_one=True)
+        
+        return {
+            "total_usage": result["total_usage"] if result else 0,
+            "total_tags": result["total_tags"] if result else 0
+        }
+        
+    def get_top_guild_tags(self, guild_id: int, page: int = 1) -> List[Dict[str, Any]]:
+        """Gets the top tags in a guild."""
+        offset = (page - 1) * 10
+        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? ORDER BY use_count DESC LIMIT 10 OFFSET ?", (guild_id, offset), fetch_all=True)
+    
     def get_all_guild_tags(self, guild_id: int) -> List[Dict[str, Any]]:
-        """Gets all tags in a guild."""
-        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? ORDER BY name", (guild_id,), fetch_all=True)
+        return self.execute_query(
+            "SELECT tag_id, name FROM tags WHERE guild_id = ? ORDER BY name",
+            (guild_id,),
+            fetch_all=True
+        )
         
     def get_user_tags(self, guild_id: int, owner_id: int) -> List[Dict[str, Any]]:
         """Gets all tags owned by a user in a guild."""
@@ -1406,8 +1437,28 @@ class DBManager:
     def search_tags(self, guild_id: int, query: str) -> List[Dict[str, Any]]:
         """Searches for tags in a guild."""
         search_term = f"%{query.lower()}%"
-        return self.execute_query("SELECT * FROM tags WHERE guild_id = ? AND name LIKE ? ORDER BY name LIMIT 100", (guild_id, search_term), fetch_all=True)
         
+        # Search in both tags and aliases
+        tags = self.execute_query("""
+            SELECT DISTINCT t.*, ta.alias_name
+            FROM tags t
+            LEFT JOIN tag_aliases ta ON t.guild_id = ta.guild_id AND t.name = ta.original_tag_name
+            WHERE t.guild_id = ? AND (t.name LIKE ? OR ta.alias_name LIKE ?)
+            ORDER BY t.name
+            LIMIT 100
+        """, (guild_id, search_term, search_term), fetch_all=True)
+        
+        # Group aliases for each tag
+        result = {}
+        for tag in tags:
+            tag_id = tag['tag_id']
+            if tag_id not in result:
+                result[tag_id] = tag.copy()
+                result[tag_id]['aliases'] = []
+            if tag.get('alias_name'):
+                result[tag_id]['aliases'].append(tag['alias_name'])
+                
+        return list(result.values())
     def get_tag_info(self, guild_id: int, name: str) -> Optional[Dict[str, Any]]:
         """Gets detailed information about a tag."""
         tag = self.get_tag(guild_id, name)

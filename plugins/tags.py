@@ -4,6 +4,9 @@ from discord import app_commands
 from typing import Union, Optional, List, Dict, Any
 from datetime import datetime
 from bot import Morgana
+from utils import PaginationView
+
+
 
 class Tags(commands.Cog):
     def __init__(self, bot: Morgana):
@@ -40,6 +43,14 @@ class Tags(commands.Cog):
         if len(content) > 2000:
             return await ctx.reply("Tag content is too long (maximum 2000 characters)")
 
+        sub_cmds = [command.name for command in self.tag.commands]
+        sub_cmd_alias = [alias for command in self.tag.commands for alias in (command.aliases or [])]
+        all_sub_and_alias = sub_cmds + sub_cmd_alias
+        
+        print(all_sub_and_alias)
+        if name in all_sub_and_alias:
+            return await ctx.reply(f"Can't create tag `{name}`, it's a subcommand of tag.")
+        
         can_bypass = ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator
         
         # Updated to use the new check_automod_violation that returns [bool, message]
@@ -48,18 +59,20 @@ class Tags(commands.Cog):
         violation_message = violation_check[1]
         
         if has_banned_words and not can_bypass:
-            return await ctx.reply(f"Your tag contains content that violates this server's automod rules. Tag creation canceled. {violation_message}")
+            return await ctx.reply(f"Tag creation canceled. {violation_message}")
         
         success = self.bot.db.create_tag(ctx.guild.id, name, content, ctx.author.id)
         
         if success:
             if has_banned_words and can_bypass:
-                await ctx.reply(f"Tag `{name}` created successfully, but be aware it contains content that would normally trigger automod filters. {violation_message}")
+                await ctx.reply(f"Tag `{name}` created successfully.\n Warning: {violation_message}")
             else:
                 await ctx.reply(f"Tag `{name}` created successfully.")
         else:
-            await ctx.reply(f"A tag with the name `{name}` already exists.")
+            await ctx.reply(f"A tag or tag alias with the name `{name.lower()}` already exists.")
 
+
+    
     @tag.command(name="alias", description="Create an alias for an existing tag")
     @app_commands.describe(
         new_name="The name of the alias to create",
@@ -137,29 +150,51 @@ class Tags(commands.Cog):
             return [False, ""]
 
     @tag.command(name="all", description="List all tags in the server")
-    @app_commands.describe(text="Whether to show tag names (yes) or just count (no)")
-    async def tag_all(self, ctx, text: str = "yes"):
+    @app_commands.describe(page="The page number to view")
+    async def tag_all(self, ctx, page: int = 1):
         """Lists all server-specific tags for this server."""
-        show_text = text.lower() not in ("no", "false", "0")
-        
+        if page < 1:
+            return await ctx.reply("Page number must be positive.")
+
         tags = self.bot.db.get_all_guild_tags(ctx.guild.id)
-        if not tags:
+        stats = self.bot.db.get_guild_tag_stats(ctx.guild.id)
+        
+        if not tags and page == 1:
             return await ctx.reply("This server has no tags.")
+        elif not tags:
+            return await ctx.reply("No tags found on this page.")
+
+        embeds = []
+        for i in range(0, len(tags), 20):
+            embed = discord.Embed(
+                description="\n".join(f'[{tag["tag_id"]}] `{tag["name"]}`' for tag in tags[i:i+20])
+            )
+            embeds.append(embed)
+            
+        view = PaginationView(embeds, ctx.author)
+        await ctx.reply(embed=embeds[0], view=view)
         
-        tag_names = [tag["name"] for tag in tags]
         
-        formatted_tags = ", ".join(tag_names) if show_text else f"{len(tags)} tags"
+    @tag.command(name="leaderboard", aliases=["lb", "top"], description="Show the tag leaderboard")
+    async def tag_leaderboard(self, ctx):
+        """Shows the tag leaderboard for the server."""
+        stats = self.bot.db.get_guild_tag_stats(ctx.guild.id)
+        
+        if not stats["top_tags"]:
+            return await ctx.reply("No tags have been used in this server.")
         
         embed = discord.Embed(
-            title=f"Tags in {ctx.guild.name}",
-            description=formatted_tags if show_text else None,
             color=discord.Colour.dark_grey()
         )
         
-        if not show_text:
-            embed.description = f"This server has {len(tags)} tags. Use `{ctx.prefix}tag all yes` to view them all."
+        leaderboard_text = "\n".join(
+            f"{i}. `{tag['name']}`: {tag['use_count']} uses (by {f'<@{tag['owner_id']}>' if tag['owner_id'] is not None else 'Unknown User'})" 
+            for i, tag in enumerate(stats["top_tags"], 1)
+        )
         
+        embed.description = leaderboard_text
         await ctx.reply(embed=embed)
+
 
     @tag.command(name="edit", description="Edit a tag you own")
     @app_commands.describe(
@@ -185,7 +220,7 @@ class Tags(commands.Cog):
             else:
                 await ctx.reply(f"You don't own the tag `{name}`.")
 
-    @tag.command(name="remove", description="Remove a tag you own")
+    @tag.command(name="remove", aliases=["delete"], description="Remove a tag you own")
     @app_commands.describe(name="The name of the tag to remove")
     async def tag_remove(self, ctx, *, name: str):
         """Removes a tag that you own."""
@@ -235,14 +270,13 @@ class Tags(commands.Cog):
             color=discord.Colour.dark_grey()
         )
         
-        embed.set_author(name=owner_name, icon_url=owner.avatar.url if owner and owner.avatar else None)
-        embed.add_field(name="Owner", value=f"<@{tag['owner_id']}>", inline=True)
-        embed.add_field(name="Uses", value=str(tag["use_count"]), inline=True)
-        embed.add_field(name="ID", value=str(tag["tag_id"]), inline=True)
-        embed.add_field(name="Created", value=f"<t:{int(created_at.timestamp())}:R>", inline=True)
+        embed.description = "**Owner:** " + (f"<@{tag['owner_id']}>" if owner else f"Left the server (tag claimable)") + "\n"
+        embed.description +="**Total Usage:** " + str(tag["use_count"]) + "\n"
+        embed.description +="**Created At:** " + f"<t:{int(created_at.timestamp())}:R>" + "\n"
+        embed.description +="**Tag ID:** " + str(tag["tag_id"]) + "\n"
         
         if tag["aliases"] and len(tag["aliases"]) > 0:
-            embed.add_field(name="Aliases", value=", ".join(tag["aliases"]), inline=False)
+            embed.description += "\n**Aliases:** " + ", ".join(f"`{alias}`" for alias in tag["aliases"])
         
         await ctx.reply(embed=embed)
 
@@ -290,23 +324,17 @@ class Tags(commands.Cog):
         target = member or ctx.author
         
         tags = self.bot.db.get_user_tags(ctx.guild.id, target.id)
-        
+
         if not tags:
             return await ctx.reply(f"{target.name} has no tags.")
         
-        tag_list = ", ".join(f"`{tag['name']}`" for tag in tags[:20])
-        
+        tags = ", ".join(f"`{tag['name']}`" for tag in tags)
         embed = discord.Embed(
-            title=f"{target.name}'s Tags",
-            description=tag_list,
+            description=tags,
             color=discord.Colour.dark_grey()
         )
-        
-        if len(tags) > 20:
-            embed.set_footer(text=f"Showing 20/{len(tags)} tags")
-        
         await ctx.reply(embed=embed)
-
+        
     @tag.command(name="random", description="Display a random tag")
     async def tag_random(self, ctx):
         """Displays a random tag."""

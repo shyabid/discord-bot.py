@@ -9,3 +9,4 @@ psutil
 pytz
 libgen-api-enhanced
 pubchempy
+lxml
