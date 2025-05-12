@@ -184,11 +184,12 @@ class Tags(commands.Cog):
             return await ctx.reply("No tags have been used in this server.")
         
         embed = discord.Embed(
+            title="Tags Leaderboard",
             color=discord.Colour.dark_grey()
         )
         
         leaderboard_text = "\n".join(
-            f"{i}. `{tag['name']}`: {tag['use_count']} uses (by {f'<@{tag['owner_id']}>' if tag['owner_id'] is not None else 'Unknown User'})" 
+            f"""{i}. `{tag['name']}`: {tag['use_count']} uses (by {f"<@{tag['owner_id']}>" if tag['owner_id'] is not None else 'an unknown user'})""" 
             for i, tag in enumerate(stats["top_tags"], 1)
         )
         
