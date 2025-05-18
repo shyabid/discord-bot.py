@@ -17,9 +17,9 @@ class Purge(commands.Cog):
         aliases=["clear", "clean"]
     )
     @commands.has_permissions(manage_messages=True)
-    async def purge(self, ctx: commands.Context) -> None:
+    async def purge(self, ctx: commands.Context, limit=100) -> None:
         """Bulk message deletion system with filtering capabilities"""
-        await self.purge_all(ctx)
+        await self.purge_all(ctx, limit)
 
     @purge.command(name="all", description="Delete a specified number of messages")
     @app_commands.describe(limit="Number of messages to delete (max 1000)")
@@ -33,7 +33,7 @@ class Purge(commands.Cog):
         if limit > 1000:
             return await ctx.reply(self.limit_err)
         
-        deleted: List[discord.Message] = await ctx.channel.purge(limit=limit)
+        deleted: List[discord.Message] = await ctx.channel.purge(limit=limit+1)
         await ctx.send(f"Purged {len(deleted)} messages.", delete_after=5)
 
     @purge.command(name="user", description="Delete messages from a specific user")
@@ -53,7 +53,7 @@ class Purge(commands.Cog):
             lambda msg: msg.author == user
         )
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
@@ -78,7 +78,7 @@ class Purge(commands.Cog):
             or "https://" in msg.content
         )
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
@@ -109,7 +109,7 @@ class Purge(commands.Cog):
                    or msg.mention_everyone)
 
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
@@ -133,7 +133,7 @@ class Purge(commands.Cog):
             lambda msg: len(msg.embeds) > 0
         )
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
@@ -164,7 +164,7 @@ class Purge(commands.Cog):
             lambda msg: text.lower() in msg.content.lower()
         )
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
@@ -175,6 +175,36 @@ class Purge(commands.Cog):
             delete_after=5
         )
 
+    @purge.command(
+        name="after",
+        description="Delete messages after a specific message"
+    )
+    @app_commands.describe(
+        message_id="The message ID to start deleting after",
+    )
+    @commands.has_permissions(manage_messages=True)
+    async def purge_after(
+        self, 
+        ctx: commands.Context, 
+        message_id: int
+    ) -> None:
+        """Remove messages after a specific message"""
+
+        message = await ctx.channel.fetch_message(message_id)
+        if not message:
+            return await ctx.send("Message not found.")
+        
+        deleted: List[discord.Message] = await ctx.channel.purge(
+            limit=None,
+            after=message.created_at, 
+            oldest_first=False
+        )
+        await ctx.send(
+            f"Purged {len(deleted)} messages after {message.jump_url}.",
+            delete_after=5
+        )
+        
+    
     @purge.command(
         name="attachments",
         description="Delete messages containing attachments"
@@ -193,7 +223,7 @@ class Purge(commands.Cog):
             lambda msg: len(msg.attachments) > 0
         )
         deleted: List[discord.Message] = await ctx.channel.purge(
-            limit=None, 
+            limit=limit+1, 
             check=check, 
             after=None, 
             oldest_first=False
