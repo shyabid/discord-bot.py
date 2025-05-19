@@ -34,7 +34,7 @@ class Purge(commands.Cog):
             return await ctx.reply(self.limit_err)
         
         deleted: List[discord.Message] = await ctx.channel.purge(limit=limit+1)
-        await ctx.send(f"Purged {len(deleted)} messages.", delete_after=5)
+        await ctx.send(f"Purged {len(deleted) - 1} messages.", delete_after=5)
 
     @purge.command(name="user", description="Delete messages from a specific user")
     @app_commands.describe(
@@ -60,7 +60,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages from {user.mention}.",
+            f"Purged {len(deleted) - 1} messages from {user.mention}.",
             delete_after=5
         )
 
@@ -85,7 +85,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages containing links.",
+            f"Purged {len(deleted) - 1} messages containing links.",
             delete_after=5
         )
 
@@ -116,7 +116,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages containing mentions.",
+            f"Purged {len(deleted) - 1} messages containing mentions.",
             delete_after=5
         )
 
@@ -140,7 +140,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages containing embeds.",
+            f"Purged {len(deleted) - 1} messages containing embeds.",
             delete_after=5
         )
 
@@ -171,7 +171,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages containing '{text}'.",
+            f"Purged {len(deleted) - 1} messages containing '{text}'.",
             delete_after=5
         )
 
@@ -200,7 +200,7 @@ class Purge(commands.Cog):
             oldest_first=False
         )
         await ctx.send(
-            f"Purged {len(deleted)} messages after {message.jump_url}.",
+            f"Purged {len(deleted) - 1} messages after {message.jump_url}.",
             delete_after=5
         )
         
@@ -230,7 +230,7 @@ class Purge(commands.Cog):
         )
         deleted = deleted[:limit]
         await ctx.send(
-            f"Purged {len(deleted)} messages containing attachments.",
+            f"Purged {len(deleted) - 1} messages containing attachments.",
             delete_after=5
         )
 
