@@ -43,11 +43,13 @@ class UngrpdCmds(commands.Cog):
         user: str = None
     ):
         await ctx.defer()
+        if not user: 
+            user = [ctx.author]
         
-        if user == "random":
+        elif user == "random":
             user = [random.choice(ctx.guild.members)]
             
-        if user == "random girl":
+        elif user == "random girl":
             d = Detector()
             
             possible_girls = []
@@ -57,7 +59,7 @@ class UngrpdCmds(commands.Cog):
                     possible_girls.append(member)
             user = [random.choice(possible_girls)] if possible_girls else [random.choice(ctx.guild.members)]
         
-        if user == "random boy":
+        elif user == "random boy":
             d = Detector()
             
             possible_dudes = []
@@ -66,9 +68,6 @@ class UngrpdCmds(commands.Cog):
                 if name_gender in ['male', 'mostly_male']:
                     possible_dudes.append(member)
             user = [random.choice(possible_dudes)] if possible_dudes else [random.choice(ctx.guild.members)]
-        
-        elif not user: 
-            user = [ctx.author]
         
         else:
             user = user.replace(',', ' ').split()
@@ -92,7 +91,7 @@ class UngrpdCmds(commands.Cog):
             av_file = await _.display_avatar.to_file()
             avatar_files.append(av_file)
             
-            gallery_items.append(
+            gallery_itemsreplaceappend(
                 discord.MediaGalleryItem(
                     media=f"attachment://{av_file.filename}",
                     description=f"{_.name}'s avatar"
