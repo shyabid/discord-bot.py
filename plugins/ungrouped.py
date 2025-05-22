@@ -91,7 +91,7 @@ class UngrpdCmds(commands.Cog):
             av_file = await _.display_avatar.to_file()
             avatar_files.append(av_file)
             
-            gallery_itemsreplaceappend(
+            gallery_items.append(
                 discord.MediaGalleryItem(
                     media=f"attachment://{av_file.filename}",
                     description=f"{_.name}'s avatar"
