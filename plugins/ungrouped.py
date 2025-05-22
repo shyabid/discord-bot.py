@@ -40,7 +40,7 @@ class UngrpdCmds(commands.Cog):
         self, 
         ctx: commands.Context,
         *, 
-        user: str
+        user: str = None
     ):
         await ctx.defer()
         
