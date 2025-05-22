@@ -46,8 +46,7 @@ class Tags(commands.Cog):
         sub_cmds = [command.name for command in self.tag.commands]
         sub_cmd_alias = [alias for command in self.tag.commands for alias in (command.aliases or [])]
         all_sub_and_alias = sub_cmds + sub_cmd_alias
-        
-        print(all_sub_and_alias)
+    
         if name in all_sub_and_alias:
             return await ctx.reply(f"Can't create tag `{name}`, it's a subcommand of tag.")
         
@@ -63,11 +62,14 @@ class Tags(commands.Cog):
         
         success = self.bot.db.create_tag(ctx.guild.id, name, content, ctx.author.id)
         
+        
         if success:
+            tag_id = self.bot.db.get_tag_info(ctx.guild.id, name)["tag_id"]
+            
             if has_banned_words and can_bypass:
-                await ctx.reply(f"Tag `{name}` created successfully.\n Warning: {violation_message}")
+                await ctx.reply(f"Tag `{name}` created successfully with the ID: `{tag_id}`.\n> Note: {violation_message}")
             else:
-                await ctx.reply(f"Tag `{name}` created successfully.")
+                await ctx.reply(f"Tag `{name}` created successfully with the ID: `{tag_id}`.")
         else:
             await ctx.reply(f"A tag or tag alias with the name `{name.lower()}` already exists.")
 
