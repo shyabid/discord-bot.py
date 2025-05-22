@@ -105,7 +105,7 @@ class Morgana(commands.AutoShardedBot):
             
         else:
             try:
-                owner = await self.fetch_user(os.getenv("owner"))
+                owner = await self.fetch_user(1076064221210628118)
                 embed = discord.Embed(
                     title="Bot Error",
                     color=discord.Color.red(),
@@ -148,4 +148,6 @@ class Morgana(commands.AutoShardedBot):
         self
     ) -> None:
         """Start the bot."""
-        super().run(os.getenv('TOKEN'))
+        from config import token
+        super().run(token)
+        
