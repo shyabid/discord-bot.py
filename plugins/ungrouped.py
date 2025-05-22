@@ -68,7 +68,7 @@ class UngrpdCmds(commands.Cog):
             user = [random.choice(possible_dudes)] if possible_dudes else [random.choice(ctx.guild.members)]
         
         elif not user: 
-            user = ctx.author.name
+            user = ctx.author
         
         else:
             user = user.replace(',', ' ').split()
