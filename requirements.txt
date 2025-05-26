@@ -10,3 +10,4 @@ pytz
 libgen-api-enhanced
 pubchempy
 lxml
+gender-guesser
