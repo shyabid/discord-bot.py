@@ -5,7 +5,6 @@ Greetings and welcome to **Jotaro**, a full-featured, open-source Discord bot ai
 ---
 
 ## Introduction
-The
 
 Jotaro is built using the `discord.py` library, which utilizes modern Python asynchronous programming for flawless and scalable performance on multiple servers. It is carefully divided into plugins—specifically for each function—therefore making it easy to extend, customize, and maintain.
 
