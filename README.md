@@ -1,103 +1,103 @@
-Jotaro is an open-source Discord bot.
+# Jotaro - Open Source Discord Bot
 
-Greetings and welcome to **Jotaro**, a full-featured, open-source Discord bot aimed at enriching the experience on your server with a vast selection of functions. With a focus on modularity, privacy, and community-focused feature progress, Jotaro is a stable partner for a multitude of applications ranging from moderation to fun interaction, utility commands, and custom automation.
-
----
-
-## Introduction
-
-Jotaro is built using the `discord.py` library, which utilizes modern Python asynchronous programming for flawless and scalable performance on multiple servers. It is carefully divided into plugins—specifically for each function—therefore making it easy to extend, customize, and maintain.
-
-Essentially, Jotaro is natively supported with a SQLite database via the use of a specialized database manager to make persistent data storage efficient and safer. The architecture ensures fast retrieval, consistency, and easy deployment without imposing significant requirements for infrastructure.
+Welcome to **Jotaro**, a versatile and powerful open-source Discord bot designed to enhance server experience through a rich suite of features. Developed with modularity, privacy, and community-driven improvements at its core, Jotaro is your reliable companion for everything from moderation and fun interactions to utility commands and personalized automation.
 
 ---
 
-## Characteristics
+## Overview
 
-Dynamic command prefixing per server.
-- **Comprehensive moderation tools**
-- **Automated Reminder Systems and Leveling Systems**
-Entertainment commands include quizzes, waifu-themed features, and interactive games.
-- Audio Control and Voice Channel Utilities
-Extensive error handling with notifications for developers.
-In-depth control and approval for cooldown times.
-Extensible plugin architecture allows for easy scalability of functionalities.
+Jotaro is built with the `discord.py` framework, leveraging modern Python async capabilities for smooth, scalable performance across multiple servers. Its architecture is thoughtfully segmented into plugins—each encapsulating focused functionality—allowing for easy extension, customization, and maintenance.
+
+At its heart, Jotaro seamlessly integrates with an SQLite database via a dedicated database manager to store persistent data securely and efficiently. This design ensures fast access, consistency, and straightforward deployment without heavy infrastructure requirements.
 
 ---
 
-## Architectural Framework and Core Elements
+## Features
 
-### Required Documents
-
-- bot.py
-The central bot class, extending `AutoShardedBot` to optimize multi-guild operations. Handles command prefix resolution, plugin loading, event hooks (ready, errors, completions), and integrates the database manager. It’s the foundation upon which all features are built and coordinated.
-
-- db_manager.py
-Handles communication with SQLite by encapsulating schema creation, queries, and updates. This style promotes data integrity and separates database logic from command implementations, thus enhancing maintainability and reliability.
-
-# main.py
-Entrypoint that initializes and launches the bot instance. Keeps startup procedures clean and focused.
-
-- utilities.py
-Helper functions utilized across plugins for common tasks, promoting code reuse and clarity.
-
-- Data.py
-It involves static configurations or mappings that many plugins reference, helping to provide uniformity.
-
-- **schema.sql**
-The database schema is modeled to organize persistent storage, with thoughtful design intended to include features like prefixes, user stats, reminders, and other functionalities.
-
-- **waifu_list_final.json**
-A large dataset powers the "waifu" themed plugin, enabling engaging user experiences through carefully crafted content.
+- **Dynamic command prefixing per server**  
+- **Comprehensive moderation tools**  
+- **Automated reminders and leveling systems**  
+- **Entertainment commands including quizzes, waifu-related features, and fun games**  
+- **Audio control and voice channel utilities**  
+- **Robust error handling with developer notifications**  
+- **Fine-grained permissions and cooldown management**  
+- **Extensible plugin system for effortless feature scaling**
 
 ---
 
-### Extensions
+## Architecture & Key Components
 
-The plugin directory holds modular functionality, which the bot loads dynamically in the form of a cog:
+### Core Files
 
-- **afk.py** — This script handles AFK statuses, allowing users to set and track how long they've been away.
-**alias.py** is used for offering command aliasing to improve the user experience.
-- **anime.py** — Adds anime-themed commands, connecting the bot to popular fandom interactions.
-The **audio.py** file handles music and voice channel operations, thus enabling voice interactions.
-- **auto.py** — Automates repetitive tasks related to server administration.
-- **bookmark.py** — Allows users to bookmark messages or content to refer to later.
-- **botto.py** — This contains meta commands for bot details and statistics.
-The **economy.py** module provides in-server economy functionality that includes virtual currency and transaction support.
-- **fun.py** — A collection of fun commands to keep the community active.
-- **goblet.py** — A plugin intended for themed games or competitions.
-- **help.py** — Custom help command presenting command information neatly.
-- **holy.py** — Holds commands that involve religious themes or playful connotations.
-- **interactions.py** — Handles buttons, dropdowns, and other interactive components for Discord.
-- **leveling.py** — It tracks user behavior for leveling and reward purposes.
-- **meta.py** — Meta commands for managing plugins and bot internals.
-- **misc.py** — Miscellaneous commands that don't fit into other modules.
-- **mod.py** — Core moderator commands like kick, ban, mute, etc.
-- **news.py** — Allows the sharing of news or announcements across servers.
--prefix.py — Supports server-specific prefix configuration.
-- **purge.py** — Bulk message deletion command for moderation.
-- **quiz.py** — Interactive quiz games for fun and entertainment.
-- **reminder.py** — User reminders and timed notifications.
-- **snipe.py** — Recalls recently deleted or edited messages.
-- **tags.py** — Server-specific quick info snippets with custom tags.
-- **ungrouped.py** — This file holds commands which are still under development or don't fit into a category yet.
-- **vccontrol.py** — Commands for control and management of voice channels.
-- **waifu.py** — This script enables waifu-themed interactions based on a JSON dataset.
+- **bot.py**  
+  The central bot class, extending `AutoShardedBot` to optimize multi-guild operations. Handles command prefix resolution, plugin loading, event hooks (ready, errors, completions), and integrates the database manager. It’s the foundation upon which all features are built and coordinated.
+
+- **db_manager.py**  
+  Manages SQLite interactions, encapsulating schema setup, queries, and updates. This ensures data integrity and isolates database logic from command implementations, fostering maintainability and reliability.
+
+- **main.py**  
+  Entrypoint that initializes and launches the bot instance. Keeps startup procedures clean and focused.
+
+- **utils.py**  
+  Helper functions utilized across plugins for common tasks, promoting code reuse and clarity.
+
+- **data.py**  
+  Contains static data or configuration mappings that multiple plugins reference, supporting consistency.
+
+- **schema.sql**  
+  Defines the database schema to structure persistent storage, carefully designed to cover features like prefixes, user stats, reminders, and more.
+
+- **waifu_list_final.json**  
+  A comprehensive dataset powering the “waifu” themed plugin, enabling fun user interactions with pre-curated content.
+
+---
+
+### Plugins
+
+The plugins folder hosts modular features, each as a cog loaded dynamically by the bot:
+
+- **afk.py** — Manages AFK statuses, allowing users to set and track when they are away.  
+- **alias.py** — Provides command aliasing to simplify user experience.  
+- **anime.py** — Adds anime-themed commands, connecting the bot to popular fandom interactions.  
+- **audio.py** — Controls music and voice channel functionalities, enabling voice interactions.  
+- **auto.py** — Automates routine tasks for server management.  
+- **bookmark.py** — Allows users to bookmark messages or content for later.  
+- **botto.py** — Contains meta commands related to bot info and stats.  
+- **economy.py** — Implements an in-server economy system with virtual currency and transactions.  
+- **fun.py** — Collection of entertainment commands to keep the community engaged.  
+- **goblet.py** — Specialized plugin for themed games or contests.  
+- **help.py** — Custom help command presenting command information neatly.  
+- **holy.py** — Adds themed commands with spiritual or humorous undertones.  
+- **interactions.py** — Handles buttons, dropdowns, and other Discord interactions.  
+- **leveling.py** — Tracks user activity to reward leveling and engagement.  
+- **meta.py** — Meta commands for managing plugins and bot internals.  
+- **misc.py** — Miscellaneous commands that don’t fit elsewhere.  
+- **mod.py** — Core moderation tools like kick, ban, mute, etc.  
+- **news.py** — Integrates news or announcements delivery within servers.  
+- **prefix.py** — Enables server-specific prefix configuration.  
+- **purge.py** — Bulk message deletion command for moderation.  
+- **quiz.py** — Interactive quiz games for engagement and fun.  
+- **reminder.py** — User reminders and timed notifications.  
+- **snipe.py** — Recalls recently deleted or edited messages.  
+- **tags.py** — Custom tags for server-specific quick info snippets.  
+- **ungrouped.py** — Commands that are still in development or don’t belong to a category yet.  
+- **vccontrol.py** — Voice channel controls and management commands.  
+- **waifu.py** — “Waifu” themed interactions powered by the JSON dataset.  
 - **welcomer.py** — Welcomes new members with configurable messages.
 
 ---
 
-## Privacy and Compliance
+## Privacy & Compliance
 
 Jotaro is committed to respecting user privacy and operates in full accordance with EU GDPR and related regulations. Key privacy-conscious design decisions include:
 
-- **Limited data storage:** We only store information that is necessary for the operation of the bot, such as server configurations, user levels, and usage statistics for commands. We do not store any personal information beyond what users volunteer.
-- **Secure Data Handling:** Persistent data is stored locally in SQLite databases, thus eliminating the need for external data sharing.
-- **Transparency:** The bot's commands and interactions neither expose sensitive information to the public nor third parties.
-- **Ability for user control:** Users can control their own data, with features to reset levels or remove reminders.
-- **Compliance-ready:** The practices and code comply with best-practice standards with respect to data protection and user consent.
+- **Minimal data collection:** Only essential information for bot functionality is stored, such as server settings, user levels, and command usage statistics. No personal data beyond what users voluntarily provide is kept.  
+- **Secure data handling:** All persistent data is stored locally in SQLite databases without external data sharing.  
+- **Transparency:** Bot commands and interactions never expose sensitive data publicly or to third parties.  
+- **User control:** Users can manage their own data, such as resetting levels or removing reminders.  
+- **Compliance-ready:** Code and practices align with best-practice guidelines for data protection and user consent.
 
-This privacy basis allows for the owners and users to implement Jotaro with confidence, knowing that members' data rights won't be breached.
+This privacy foundation allows server owners and users to confidently deploy Jotaro without compromising their members’ data rights.
 
 ---
 
@@ -105,18 +105,27 @@ This privacy basis allows for the owners and users to implement Jotaro with conf
 
 Open sourcing Jotaro invites collaboration, transparency, and continuous improvement. Benefits include:
 
-- **Community-driven enhancements**: Anyone can contribute features, bug fixes, or optimizations.
-
-- **Transparency**: The users can inspect the code to ensure security and privacy guarantees.
-
-Customization: Servers can customize the bot in line with their own requirements through editing or by using plug-ins.
-
-Prospective developers can study a mature, large-scale bot architecture as a learning resource.
-
+- **Community-driven enhancements**: Anyone can contribute features, bug fixes, or optimizations.  
+- **Transparency**: Users can audit the code for security and privacy guarantees.  
+- **Customization**: Servers can tailor the bot to their exact needs by modifying or extending plugins.  
+- **Learning resource**: Aspiring developers can study a real-world, scalable bot architecture.  
 - **Sustainability**: Open collaboration ensures long-term project maintenance beyond individual developers.
 
 Jotaro exemplifies how open-source software can empower communities through shared ownership and collective expertise.
 
 ---
 
-## Getting Started First, clone the repository. One should create a Discord bot application and then get the bot token. 3. Configure `.env` with your token, owner ID, and desired description. 4. Install dependencies from `requirements.txt`. To start the bot, run the command `main.py`. Configure your own server prefixes and load or unload plugins as required. For a thorough listing of configuration parameters and commands, please refer to the related plugin documentation in the codebase. --- I am grateful you're interested in Jotaro. If you're a developer, administrator, or just an enthusiast, this project invites you to take part.
+## Getting Started
+
+1. Clone the repository.  
+2. Set up a Discord bot application and obtain your bot token.  
+3. Configure `.env` with your token, owner ID, and desired description.  
+4. Install dependencies from `requirements.txt`.  
+5. Run `main.py` to launch the bot.  
+6. Customize your server prefixes and load/unload plugins as needed.
+
+For detailed configuration options and commands, please refer to the individual plugin documentation within the codebase.
+
+---
+
+Thank you for exploring Jotaro! Whether you are a server admin, developer, or enthusiast, this project welcomes your involvement.
