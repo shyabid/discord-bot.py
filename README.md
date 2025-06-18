@@ -1,12 +1,12 @@
-# Jotaro - Open Source Discord Bot
+#  Open Source Discord Bot
 
-Welcome to **Jotaro**, a versatile and powerful open-source Discord bot designed to enhance server experience through a rich suite of features. Developed with modularity, privacy, and community-driven improvements at its core, Jotaro is your reliable companion for everything from moderation and fun interactions to utility commands and personalized automation.
+A versatile and powerful open-source Discord bot designed to enhance server experience through a rich suite of features. Developed with modularity, privacy, and community-driven improvements at its core, Jotaro is your reliable companion for everything from moderation and fun interactions to utility commands and personalized automation.
 
 ---
 
 ## Overview
 
-Jotaro is built with the `discord.py` framework, leveraging modern Python async capabilities for smooth, scalable performance across multiple servers. Its architecture is thoughtfully segmented into plugins—each encapsulating focused functionality—allowing for easy extension, customization, and maintenance.
+The project is built with the `discord.py` framework, leveraging modern Python async capabilities for smooth, scalable performance across multiple servers. Its architecture is thoughtfully segmented into plugins—each encapsulating focused functionality—allowing for easy extension, customization, and maintenance.
 
 At its heart, Jotaro seamlessly integrates with an SQLite database via a dedicated database manager to store persistent data securely and efficiently. This design ensures fast access, consistency, and straightforward deployment without heavy infrastructure requirements.
 
@@ -89,7 +89,7 @@ The plugins folder hosts modular features, each as a cog loaded dynamically by t
 
 ## Privacy & Compliance
 
-Jotaro is committed to respecting user privacy and operates in full accordance with EU GDPR and related regulations. Key privacy-conscious design decisions include:
+The project is committed to respecting user privacy and operates in full accordance with EU GDPR and related regulations. Key privacy-conscious design decisions include:
 
 - **Minimal data collection:** Only essential information for bot functionality is stored, such as server settings, user levels, and command usage statistics. No personal data beyond what users voluntarily provide is kept.  
 - **Secure data handling:** All persistent data is stored locally in SQLite databases without external data sharing.  
@@ -103,7 +103,7 @@ This privacy foundation allows server owners and users to confidently deploy Jot
 
 ## Why Open Source?
 
-Open sourcing Jotaro invites collaboration, transparency, and continuous improvement. Benefits include:
+Open sourcing the project invites collaboration, transparency, and continuous improvement. Benefits include:
 
 - **Community-driven enhancements**: Anyone can contribute features, bug fixes, or optimizations.  
 - **Transparency**: Users can audit the code for security and privacy guarantees.  
@@ -111,7 +111,7 @@ Open sourcing Jotaro invites collaboration, transparency, and continuous improve
 - **Learning resource**: Aspiring developers can study a real-world, scalable bot architecture.  
 - **Sustainability**: Open collaboration ensures long-term project maintenance beyond individual developers.
 
-Jotaro exemplifies how open-source software can empower communities through shared ownership and collective expertise.
+The project exemplifies how open-source software can empower communities through shared ownership and collective expertise.
 
 ---
 
@@ -128,4 +128,4 @@ For detailed configuration options and commands, please refer to the individual 
 
 ---
 
-Thank you for exploring Jotaro! Whether you are a server admin, developer, or enthusiast, this project welcomes your involvement.
+Thank you for exploring! Whether you are a server admin, developer, or enthusiast, this project welcomes your involvement.
