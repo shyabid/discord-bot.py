@@ -4,7 +4,7 @@ from discord.ext import commands
 import aiohttp
 
 ADD_BOOKMARK_EMOJI = "🔖"
-REMOVE_BOOKMARK_EMOJI = "❌"
+REMOVE_BOOKMARK_EMOJI = "🗑️"
 
 class Bookmark(commands.Cog):
     """Message bookmark system for personal reference"""
