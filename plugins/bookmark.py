@@ -116,8 +116,13 @@ class Bookmark(commands.Cog):
             timestamp=message.created_at
         )
         embed.set_author(
-            name=message.author.display_name,
-            icon_url=message.author.display_avatar.url if hasattr(message.author, 'display_avatar') else message.author.avatar.url
+            name="Message Bookmarked",
+            icon_url="https://i.imgur.com/8GRtR2G.png"
+        )
+        embed.add_field(
+            name="Author",
+            value=message.author.display_name,
+            inline=False
         )
         if message.reference and message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
             ref_msg = message.reference.resolved
