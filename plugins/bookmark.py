@@ -116,7 +116,7 @@ class Bookmark(commands.Cog):
             timestamp=message.created_at
         )
         embed.set_author(
-            name="Message Bookmarked",
+            name="Info",
             icon_url="https://i.imgur.com/8GRtR2G.png"
         )
         embed.add_field(
